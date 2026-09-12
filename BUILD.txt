@@ -1,0 +1,64 @@
+FLAPPY CRIX — DESKTOP
+=====================
+CRIX STUDIOS
+
+One app. No launcher, no second download.
+
+
+WHAT YOU NEED
+-------------
+Node.js from nodejs.org (LTS). Tick "Add to PATH" during install.
+Put icon.ico in this folder. It must be a real .ico, not a renamed PNG.
+
+
+BUILD
+-----
+    npm install
+    npm run build
+
+Output in dist\:
+    FlappyCrixSetup-1.0.0.exe    installer
+    FlappyCrix.exe               portable, runs anywhere
+
+If the installer does not appear, NSIS failed to download. Use:
+    npm run build:portable
+
+
+IMPORTANT
+---------
+Upload the files from dist\, NOT the exe inside win-unpacked.
+That one needs the ~100 files around it and will fail with a
+missing ffmpeg.dll error if moved on its own.
+
+
+PUBLISH
+-------
+Create a PUBLIC repo called crix-desktop, then:
+
+    $env:GITHUB_TOKEN="your_token"
+    npm run publish
+
+That builds and creates the GitHub release in one step.
+Get a token at GitHub > Settings > Developer settings >
+Personal access tokens, with "repo" scope.
+
+
+HOW UPDATES WORK
+----------------
+Two layers, and only one of them matters day to day.
+
+THE GAME loads from crixgamingvr.com. Push to your website and every
+player has it next launch. No download, nothing for them to do. This is
+where nearly all your changes go.
+
+THE WRAPPER (this exe) updates through electron-updater. You only need
+this for native changes — the icon, permissions, the menu. Rare.
+
+
+WHAT IS IN IT
+-------------
+  - The full game
+  - CRIX Chat in its own window, Ctrl+Shift+C
+  - Stats, notifications and patch notes (already in the game)
+  - Menu access to files, terms, privacy and update checking
+  - Google sign-in that actually works in Electron

@@ -1,0 +1,77 @@
+{
+  "name": "flappy-crix",
+  "version": "1.0.0",
+  "description": "Flappy Crix \u2014 CRIX STUDIOS",
+  "main": "main.js",
+  "author": {
+    "name": "CRIX STUDIOS",
+    "email": "cgvr@crixgamingvr.com"
+  },
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --publish never",
+    "build:portable": "electron-builder --win portable --publish never",
+    "publish": "electron-builder --win --publish always"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.crixgamingvr.flappycrix",
+    "productName": "Flappy Crix",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.ico",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "signingHashAlgorithms": null,
+      "certificateFile": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Flappy Crix",
+      "artifactName": "FlappyCrixSetup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "FlappyCrix.exe"
+    },
+    "copyright": "\u00a9 CRIX STUDIOS",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "CRIX447",
+        "repo": "crix-desktop"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  }
+}
