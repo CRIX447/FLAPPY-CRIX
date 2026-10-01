@@ -1,0 +1,39 @@
+# Builds the Windows app on GitHub's own Windows machine and attaches it to a
+# DRAFT release, so nobody needs Node or a Windows build setup locally.
+# Run it from the Actions tab ("Run workflow"), then check the draft under
+# Releases and press Publish. Players get nothing until then.
+name: Build Windows app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write          # to create the draft release and upload to it
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm install
+
+      - name: Build and attach to a draft release
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Nothing is code-signed, so skip fetching the signing toolkit
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # A copy on the run itself too, in case the release step is ever refused
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlappyCrix-windows
+          path: |
+            dist/*.exe
+            dist/latest.yml

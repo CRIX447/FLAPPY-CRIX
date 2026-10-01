@@ -11,13 +11,27 @@ Node.js from nodejs.org (LTS). Tick "Add to PATH" during install.
 Put icon.ico in this folder. It must be a real .ico, not a renamed PNG.
 
 
-BUILD
------
+BUILD ON GITHUB (easiest — no Node needed)
+------------------------------------------
+GitHub builds it for you on a Windows machine:
+
+    1. github.com/CRIX447/FLAPPY-CRIX > Actions > "Build Windows app"
+    2. Run workflow
+    3. About 5 minutes later a DRAFT release appears under Releases,
+       with the installer, the portable exe and latest.yml attached.
+    4. Check it, then press "Publish release". Nobody gets it until then.
+
+Change "version" in package.json before each new release — a release
+for a version that already exists is refused.
+
+
+BUILD ON YOUR PC
+----------------
     npm install
     npm run build
 
 Output in dist\:
-    FlappyCrixSetup-1.0.0.exe    installer
+    FlappyCrixSetup-1.1.0.exe    installer
     FlappyCrix.exe               portable, runs anywhere
 
 If the installer does not appear, NSIS failed to download. Use:
@@ -38,7 +52,8 @@ Create a PUBLIC repo called crix-desktop, then:
     $env:GITHUB_TOKEN="your_token"
     npm run publish
 
-That builds and creates the GitHub release in one step.
+That builds and creates a draft GitHub release in one step. Publish it
+on GitHub when you are happy with it.
 Get a token at GitHub > Settings > Developer settings >
 Personal access tokens, with "repo" scope.
 
@@ -61,4 +76,19 @@ WHAT IS IN IT
   - CRIX Chat in its own window, Ctrl+Shift+C
   - Stats, notifications and patch notes (already in the game)
   - Menu access to files, terms, privacy and update checking
-  - Google sign-in that actually works in Electron
+  - Sign in with Google through your own browser — the app signs itself
+    in, because Google blocks sign-in inside apps
+  - A "can't reach the servers" screen that reconnects on its own
+
+
+WHAT CHANGED IN 1.1.0
+---------------------
+  - preload.js was missing, so the game could not tell it was in the app
+  - Sign-in pop-ups and Discord linking now stay inside the app instead
+    of being thrown out to the browser, where they could never finish
+  - Every request looks like normal Chrome, not just the first page
+  - No more false "could not reach the servers" when a page was simply
+    replaced by another one (a redirect, a reload)
+  - The version check ran twice and used Node's networking, which ignores
+    proxies; it now runs once through the same network as the game
+  - The window always appears, even when the first load fails

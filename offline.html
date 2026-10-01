@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Crix</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0A0A0F; color: #EDEDED;
+               font: 15px/1.6 system-ui, "Segoe UI", sans-serif; }
+  .wrap { height: 100%; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; text-align: center; padding: 0 28px; box-sizing: border-box; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #FF4655; letter-spacing: 1px; }
+  p { margin: 0 0 6px; color: #BDBDBD; max-width: 360px; }
+  .why { font-size: 12px; color: #777; margin-top: 4px; word-break: break-word; }
+  .status { margin-top: 18px; font-size: 13px; color: #00CC7A; min-height: 20px; }
+  button { margin-top: 18px; background: #FF4655; color: #fff; border: 0; border-radius: 10px;
+           padding: 12px 28px; font: inherit; font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00CC7A;
+         margin-right: 6px; animation: pulse 1.2s infinite ease-in-out; vertical-align: middle; }
+  @keyframes pulse { 50% { opacity: .25; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CAN'T REACH THE SERVERS</h1>
+  <p>Flappy Crix needs the internet to load. Check your connection — the game
+     will open by itself as soon as it can get through.</p>
+  <div class="why" id="why"></div>
+  <div class="status" id="status"><span class="dot"></span>Trying again…</div>
+  <button id="retry">TRY NOW</button>
+</div>
+<script>
+/* Shown by the app when the game page will not load. Keeps checking whether
+   the site can be reached and goes back to the game the moment it can, so
+   nobody has to sit there pressing a button. */
+(function () {
+  var q = new URLSearchParams(location.search);
+  var game = q.get('url') || 'https://crixgamingvr.com/flappycrix';
+  var why = q.get('reason');
+  if (why) document.getElementById('why').textContent = '(' + why + ')';
+  var status = document.getElementById('status');
+  var wait = 3, timer = null, busy = false;
+
+  function schedule() {
+    clearTimeout(timer);
+    var left = wait;
+    (function tick() {
+      status.innerHTML = '<span class="dot"></span>Trying again in ' + left + 's…';
+      if (left-- <= 0) return attempt();
+      timer = setTimeout(tick, 1000);
+    })();
+  }
+  function attempt() {
+    if (busy) return;
+    busy = true;
+    status.innerHTML = '<span class="dot"></span>Connecting…';
+    // no-cors: all that matters is whether the server answered at all
+    fetch(game + (game.indexOf('?') < 0 ? '?' : '&') + 'ping=' + Date.now(), { mode: 'no-cors', cache: 'no-store' })
+      .then(function () { status.textContent = 'Connected — loading the game…'; location.replace(game); })
+      .catch(function () {
+        busy = false;
+        wait = Math.min(30, Math.round(wait * 1.6));   // 3s, 5s, 8s … up to 30s
+        schedule();
+      });
+  }
+  document.getElementById('retry').onclick = function () { clearTimeout(timer); wait = 3; attempt(); };
+  addEventListener('online', function () { clearTimeout(timer); attempt(); });
+  schedule();
+})();
+</script>
+</body>
+</html>

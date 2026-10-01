@@ -12,7 +12,7 @@ echo  Builds the game and creates the GitHub release
 echo  in one step.
 echo.
 echo  You need:
-echo    - a PUBLIC repo called crix-desktop
+echo    - the FLAPPY-CRIX repo on GitHub ^(releases go there^)
 echo    - a personal access token with "repo" scope
 echo      ^(GitHub ^> Settings ^> Developer settings^)
 echo.
@@ -75,8 +75,9 @@ if errorlevel 1 (
     echo  ================================================
     echo.
     echo  Check it here:
-    echo    https://github.com/CRIX447/crix-desktop/releases
+    echo    https://github.com/CRIX447/FLAPPY-CRIX/releases
     echo.
+    echo  It is a DRAFT - press "Publish release" on GitHub to send it out.
     echo  Make sure the release shows a .exe AND latest.yml
     echo  under Assets. Without latest.yml, auto-update
     echo  will not work.

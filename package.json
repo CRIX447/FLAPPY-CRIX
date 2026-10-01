@@ -1,7 +1,7 @@
 {
   "name": "flappy-crix",
-  "version": "1.0.0",
-  "description": "Flappy Crix \u2014 CRIX STUDIOS",
+  "version": "1.1.0",
+  "description": "Flappy Crix — CRIX STUDIOS",
   "main": "main.js",
   "author": {
     "name": "CRIX STUDIOS",
@@ -27,6 +27,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "offline.html",
       "icon.ico",
       "package.json"
     ],
@@ -62,12 +63,13 @@
     "portable": {
       "artifactName": "FlappyCrix.exe"
     },
-    "copyright": "\u00a9 CRIX STUDIOS",
+    "copyright": "© CRIX STUDIOS",
     "publish": [
       {
         "provider": "github",
         "owner": "CRIX447",
-        "repo": "crix-desktop"
+        "repo": "FLAPPY-CRIX",
+        "releaseType": "draft"
       }
     ]
   },
