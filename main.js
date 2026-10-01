@@ -6,7 +6,7 @@
  * literally the same game.
  */
 
-const { app, BrowserWindow, shell, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net } = require('electron');
 const path = require('path');
 
 // Optional — the app runs fine without it, just without self-updating
@@ -14,27 +14,16 @@ let autoUpdater = null;
 try { ({ autoUpdater } = require('electron-updater')); }
 catch (e) { console.log('electron-updater not installed — auto-update off'); }
 
-const GAME_URL = 'https://crixgamingvr.com/flappycrix';
+// CRIX_GAME_URL points a development run (npm start) at a local copy of the
+// site. A built exe always loads the real one.
+const GAME_URL = (!app.isPackaged && process.env.CRIX_GAME_URL) ||
+                 'https://crixgamingvr.com/flappycrix';
+const SITE = new URL(GAME_URL).origin;
 
 // Only these load inside the window. Everything else opens in the real
 // browser, so the app never turns into a general-purpose web browser.
-const INTERNAL = ['crixgamingvr.com', 'www.crixgamingvr.com'];
-const INTERNAL_PATHS = ['/flappycrix', '/game.html'];
-
-let win = null;
-
-// Domains involved in signing in. These must load in-app so the redirect
-// can return, unlike ordinary external links.
-const AUTH_HOSTS = [
-    'accounts.google.com', 'apis.google.com', 'ssl.gstatic.com',
-    'discord.com', 'discordapp.com',
-    'flappy-crix.firebaseapp.com', 'app.crixgamingvr.com',
-    'identitytoolkit.googleapis.com'
-];
-function isAuthUrl(url) {
-    try { return AUTH_HOSTS.some(h => new URL(url).hostname.endsWith(h)); }
-    catch (e) { return false; }
-}
+const INTERNAL = ['crixgamingvr.com', 'www.crixgamingvr.com', new URL(GAME_URL).hostname];
+const INTERNAL_PATHS = ['/flappycrix', '/game'];   // /flappycrix-og is the birthday season
 
 function isGameUrl(url) {
     try {
@@ -44,10 +33,73 @@ function isGameUrl(url) {
     } catch (e) { return false; }
 }
 
-// Google sign-in refuses to load in an unrecognised user agent, so present a
-// normal Chrome string rather than the default Electron one.
+/* Signing in. Firebase's Google sign-in opens a pop-up on
+   app.crixgamingvr.com/__/auth/..., which then hops through Google; linking
+   Discord navigates the game itself to Discord and back. Both have to stay
+   inside the app, or the answer comes back to a browser the game cannot
+   hear. 1.0.0 sent all of them to the default browser, which is why signing
+   in and linking Discord never finished in the exe. */
+function isAuthUrl(url) {
+    try {
+        const u = new URL(url);
+        const h = u.hostname;
+        if (u.protocol !== 'https:') return false;
+        if (h === 'app.crixgamingvr.com' || h.endsWith('.firebaseapp.com')) return u.pathname.startsWith('/__/auth');
+        if (h === 'accounts.google.com' || h === 'accounts.youtube.com') return true;
+        if (h === 'discord.com' || h === 'discordapp.com') return /^\/(api\/)?(oauth2|login)/.test(u.pathname);
+        return false;
+    } catch (e) { return false; }
+}
+
+/* Google refuses to sign anyone in from a browser it does not recognise, so
+   every request — not only the first page, which is all 1.0.0 covered —
+   presents itself as the Chrome this Electron is built on. */
+const CHROME = (process.versions.chrome || '128.0.0.0').split('.')[0];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-           '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+           `(KHTML, like Gecko) Chrome/${CHROME}.0.0.0 Safari/537.36`;
+app.userAgentFallback = UA;
+
+function openExternalSafe(url) {
+    try {
+        const u = new URL(url);
+        if (['https:', 'http:', 'mailto:'].includes(u.protocol)) shell.openExternal(u.href);
+    } catch (e) { /* not a URL — ignore */ }
+}
+
+// The page asks for these through preload.js
+ipcMain.on('crix:open-external', (e, url) => openExternalSafe(String(url || '')));
+ipcMain.on('crix:version', e => { e.returnValue = app.getVersion(); });
+
+// Sign-in pop-ups: a small window of their own, still able to hand the
+// result back to the game that opened it.
+const AUTH_POPUP = {
+    action: 'allow',
+    overrideBrowserWindowOptions: {
+        width: 500, height: 700,
+        autoHideMenuBar: true,
+        backgroundColor: '#FFFFFF',
+        title: 'Sign in',
+        icon: path.join(__dirname, 'icon.ico'),
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    }
+};
+
+let win = null;
+
+function loadGame() {
+    if (win) win.loadURL(GAME_URL);
+}
+
+/* When the servers cannot be reached, a page that says so and keeps trying
+   on its own — rather than 1.0.0's warning box, which could open behind a
+   window that had never been shown, so it looked like nothing happened. */
+function showOffline(reason) {
+    if (!win) return;
+    win.loadFile(path.join(__dirname, 'offline.html'), {
+        query: { reason: reason || '', url: GAME_URL }
+    });
+    if (!win.isVisible()) win.show();
+}
 
 function createWindow() {
     win = new BrowserWindow({
@@ -69,54 +121,65 @@ function createWindow() {
         }
     });
 
-    win.loadURL(GAME_URL, { userAgent: UA });
+    loadGame();
     // The page sets its own title; keep ours fixed
     win.on('page-title-updated', e => e.preventDefault());
 
-    // Avoids a white flash before the page paints
+    // Avoids a white flash before the page paints — and if it never paints
+    // (a very slow connection), show the window anyway rather than nothing.
     win.once('ready-to-show', () => win.show());
+    setTimeout(() => { if (win && !win.isVisible()) win.show(); }, 4000);
 
-    // Anything that is not the game opens in the default browser
     win.webContents.setWindowOpenHandler(({ url }) => {
-        // Everything opens in the default browser — including sign-in, which
-        // Google refuses to do inside an embedded window.
-        shell.openExternal(url);
+        if (isAuthUrl(url)) return AUTH_POPUP;
+        openExternalSafe(url);
         return { action: 'deny' };
     });
 
-
     win.webContents.on('will-navigate', (e, url) => {
-        // Only the game itself loads in this window
-        if (isGameUrl(url)) return;
+        // The game, the waiting page, and the sign-in round trip stay here
+        if (isGameUrl(url) || isAuthUrl(url) || url.startsWith('file:')) return;
         e.preventDefault();
-        shell.openExternal(url);
+        openExternalSafe(url);
     });
 
-    // A blank window with no explanation is the worst failure mode
     win.webContents.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
         if (!isMainFrame) return;
-        dialog.showMessageBox(win, {
-            type: 'warning',
-            title: 'Could not connect',
-            message: 'Flappy Crix could not reach the servers.',
-            detail: `${desc}\n\nCheck your internet connection and try again.`,
-            buttons: ['Retry', 'Quit']
-        }).then(r => {
-            if (r.response === 0) win.loadURL(GAME_URL, { userAgent: UA });
-            else app.quit();
-        });
+        // -3 is ERR_ABORTED: this load was replaced by another one (a
+        // redirect, a reload, the game moving to /flappycrix-og). Nothing
+        // failed. 1.0.0 told players it could not reach the servers.
+        if (code === -3) return;
+        // A sign-in page that failed is the sign-in's problem, not the game's
+        if (!isGameUrl(url)) return;
+        showOffline(desc);
+    });
+
+    // The page crashed or was killed — bring the game back
+    win.webContents.on('render-process-gone', (e, details) => {
+        if (details.reason !== 'clean-exit') loadGame();
     });
 
     win.on('closed', () => { win = null; });
 }
+
+// Pop-ups (sign-in) follow the same rules as the main window
+app.on('web-contents-created', (e, contents) => {
+    if (contents.getType() !== 'window') return;
+    contents.on('did-create-window', child => {
+        child.webContents.setWindowOpenHandler(({ url }) => {
+            if (isAuthUrl(url)) return AUTH_POPUP;
+            openExternalSafe(url);
+            return { action: 'deny' };
+        });
+    });
+});
 
 // A minimal menu — the default one exposes devtools and page reload shortcuts
 Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
         label: 'Game',
         submenu: [
-            { label: 'Reload', accelerator: 'F5',
-              click: () => win?.loadURL(GAME_URL, { userAgent: UA }) },
+            { label: 'Reload', accelerator: 'F5', click: loadGame },
             { label: 'Fullscreen', accelerator: 'F11',
               click: () => win?.setFullScreen(!win.isFullScreen()) },
             { type: 'separator' },
@@ -128,9 +191,9 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
         label: 'Links',
         submenu: [
-            { label: 'Website', click: () => shell.openExternal('https://crixgamingvr.com') },
-            { label: 'Discord', click: () => shell.openExternal('https://discord.com/invite/MbQvJGDAst') },
-            { label: 'All links', click: () => shell.openExternal('https://crixgamingvr.com/bio') }
+            { label: 'Website', click: () => openExternalSafe('https://crixgamingvr.com') },
+            { label: 'Discord', click: () => openExternalSafe('https://discord.com/invite/MbQvJGDAst') },
+            { label: 'All links', click: () => openExternalSafe('https://crixgamingvr.com/bio') }
         ]
     },
     {
@@ -142,8 +205,8 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
                 ? autoUpdater.checkForUpdates().catch(() => {})
                 : dialog.showMessageBox(win, { message: 'Auto-update is not available in this build.' }) },
             { type: 'separator' },
-            { label: 'Terms of Service', click: () => shell.openExternal('https://crixgamingvr.com/terms') },
-            { label: 'Privacy Policy', click: () => shell.openExternal('https://crixgamingvr.com/privacy') },
+            { label: 'Terms of Service', click: () => openExternalSafe('https://crixgamingvr.com/terms') },
+            { label: 'Privacy Policy', click: () => openExternalSafe('https://crixgamingvr.com/privacy') },
             { type: 'separator' },
             { label: 'About', click: () => dialog.showMessageBox(win, {
                 type: 'info', title: 'Flappy Crix',
@@ -165,45 +228,42 @@ if (!app.requestSingleInstanceLock()) {
     app.whenReady().then(() => {
         createWindow();
         setupUpdates();
-        watchGameVersion();
-        watchGameVersion();
+        watchGameVersion();     // 1.0.0 started this twice
     });
 }
 
 /* ---------- GAME VERSION WATCH ----------
    The game is loaded from the website, so a push changes it underneath a
    running client. Rather than leaving someone on a stale build that may not
-   match the servers, offer to restart. */
+   match the servers, offer to restart. net.fetch goes through Chromium's
+   network stack, so it uses the same proxy and certificates as the game —
+   Node's https module, which 1.0.0 used, does not. */
 let knownVersion = null;
 
 function watchGameVersion() {
-    const https = require('https');
-    const check = () => {
-        https.get('https://crixgamingvr.com/flappycrix?cb=' + Date.now(), r => {
-            let b = '';
-            r.on('data', d => b += d);
-            r.on('end', () => {
-                const m = b.match(/const GAME_VERSION = '([^']+)'/);
-                if (!m) return;
-                const v = m[1];
+    const check = async () => {
+        try {
+            const r = await net.fetch(GAME_URL + '?cb=' + Date.now(), { cache: 'no-store' });
+            if (!r.ok) return;
+            const m = (await r.text()).match(/const GAME_VERSION = '([^']+)'/);
+            if (!m) return;
+            const v = m[1];
 
-                if (knownVersion === null) { knownVersion = v; return; }
-                if (v === knownVersion) return;
-                knownVersion = v;
+            if (knownVersion === null) { knownVersion = v; return; }
+            if (v === knownVersion) return;
+            knownVersion = v;
 
-                dialog.showMessageBox(win, {
-                    type: 'info',
-                    title: 'Update available',
-                    message: `Flappy Crix ${v} is out.`,
-                    detail: 'Restart to get the new version. Your progress is saved.',
-                    buttons: ['Restart now', 'Later'],
-                    defaultId: 0,
-                    cancelId: 1
-                }).then(res => {
-                    if (res.response === 0) win.reload();
-                });
+            const res = await dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'Update available',
+                message: `Flappy Crix ${v} is out.`,
+                detail: 'Restart to get the new version. Your progress is saved.',
+                buttons: ['Restart now', 'Later'],
+                defaultId: 0,
+                cancelId: 1
             });
-        }).on('error', () => {});
+            if (res.response === 0) loadGame();
+        } catch (e) { /* offline — try again next time */ }
     };
     check();
     setInterval(check, 10 * 60 * 1000);
@@ -213,7 +273,7 @@ function watchGameVersion() {
    The GAME itself updates from the website every launch. This only handles
    the wrapper — permissions, the icon, native changes — which is rare. */
 function setupUpdates() {
-    if (!autoUpdater) return;
+    if (!autoUpdater || !app.isPackaged) return;
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -243,14 +303,14 @@ function openChat() {
         width: 440, height: 800, backgroundColor: '#0A0A0F',
         title: 'CRIX Chat', autoHideMenuBar: true,
         icon: path.join(__dirname, 'icon.ico'),
-        webPreferences: { contextIsolation: true, nodeIntegration: false }
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
     });
-    chatWin.loadURL('https://crixgamingvr.com/crixchat', { userAgent: UA });
+    chatWin.loadURL(SITE + '/crixchat');
     chatWin.on('page-title-updated', e => e.preventDefault());
     chatWin.on('closed', () => { chatWin = null; });
     chatWin.webContents.setWindowOpenHandler(({ url }) => {
-        if (isAuthUrl(url)) return { action: 'allow' };
-        shell.openExternal(url);
+        if (isAuthUrl(url)) return AUTH_POPUP;
+        openExternalSafe(url);
         return { action: 'deny' };
     });
 }
