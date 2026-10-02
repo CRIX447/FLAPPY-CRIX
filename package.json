@@ -1,6 +1,6 @@
 {
   "name": "flappy-crix",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Flappy Crix — CRIX STUDIOS",
   "main": "main.js",
   "author": {
@@ -16,7 +16,8 @@
   },
   "devDependencies": {
     "electron": "^32.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "rcedit": "^4.0.1"
   },
   "build": {
     "appId": "com.crixgamingvr.flappycrix",
@@ -58,7 +59,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Flappy Crix",
-      "artifactName": "FlappyCrixSetup-${version}.exe"
+      "artifactName": "FlappyCrixSetup-${version}.exe",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico"
     },
     "portable": {
       "artifactName": "FlappyCrix.exe"
@@ -71,7 +74,8 @@
         "repo": "FLAPPY-CRIX",
         "releaseType": "draft"
       }
-    ]
+    ],
+    "afterPack": "build/afterPack.js"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"
