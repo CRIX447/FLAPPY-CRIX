@@ -31,7 +31,7 @@ BUILD ON YOUR PC
     npm run build
 
 Output in dist\:
-    FlappyCrixSetup-1.1.0.exe    installer
+    FlappyCrixSetup-1.1.1.exe    installer
     FlappyCrix.exe               portable, runs anywhere
 
 If the installer does not appear, NSIS failed to download. Use:
@@ -79,6 +79,20 @@ WHAT IS IN IT
   - Sign in with Google through your own browser — the app signs itself
     in, because Google blocks sign-in inside apps
   - A "can't reach the servers" screen that reconnects on its own
+
+
+THE ICON
+--------
+icon.ico is stamped into the exe by build\afterPack.js. To change it,
+replace icon.ico with a real .ico (not a renamed PNG) and build again.
+Windows remembers old icons for a while: if the shortcut still shows the
+old one after installing, unpin it and pin it again, or sign out and in.
+
+
+WHAT CHANGED IN 1.1.1
+---------------------
+  - The exe shows the Flappy Crix icon instead of Electron's: on the
+    desktop shortcut, the taskbar, the installer and Task Manager
 
 
 WHAT CHANGED IN 1.1.0
