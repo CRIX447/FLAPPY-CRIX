@@ -6,8 +6,24 @@
  * literally the same game.
  */
 
-const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net } = require('electron');
+const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net, session } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { pathToFileURL } = require('url');
+
+/* A copy someone downloaded will not start with a debugger or a remote
+   control port switched on. Either would let another program drive the game
+   from outside, or read the signed-in session out of it. The fuses set at
+   build time (package.json → electronFuses) already stop --inspect and
+   running the exe as plain Node; this covers Chromium's own switches.
+   Development runs (npm start) are not affected. */
+const DEBUG_SWITCHES = ['remote-debugging-port', 'remote-debugging-pipe', 'remote-debugging-address',
+                        'remote-allow-origins', 'inspect', 'inspect-brk', 'inspect-port', 'js-flags'];
+if (app.isPackaged && (DEBUG_SWITCHES.some(s => app.commandLine.hasSwitch(s)) ||
+    process.argv.some(a => /^--(remote-debugging|remote-allow-origins|inspect|js-flags)/i.test(a)))) {
+    process.exit(1);
+}
+const DEV_TOOLS = !app.isPackaged;      // no developer tools in a built copy
 
 // Optional — the app runs fine without it, just without self-updating
 let autoUpdater = null;
@@ -24,6 +40,20 @@ const SITE = new URL(GAME_URL).origin;
 // browser, so the app never turns into a general-purpose web browser.
 const INTERNAL = ['crixgamingvr.com', 'www.crixgamingvr.com', new URL(GAME_URL).hostname];
 const INTERNAL_PATHS = ['/flappycrix', '/game'];   // /flappycrix-og is the birthday season
+
+// The site the game comes from — the only one allowed to ask for anything
+function isGameOrigin(url) {
+    try {
+        const u = new URL(url);
+        return INTERNAL.includes(u.hostname) &&
+               (u.protocol === 'https:' || (!app.isPackaged && u.origin === SITE));
+    } catch (e) { return false; }
+}
+
+// The "can't reach the servers" page that ships inside the app
+const OFFLINE_FILE = path.join(__dirname, 'offline.html');
+const OFFLINE_URL = pathToFileURL(OFFLINE_FILE).href;
+const isOfflinePage = url => typeof url === 'string' && url.split(/[?#]/)[0] === OFFLINE_URL;
 
 function isGameUrl(url) {
     try {
@@ -66,9 +96,90 @@ function openExternalSafe(url) {
     } catch (e) { /* not a URL — ignore */ }
 }
 
-// The page asks for these through preload.js
-ipcMain.on('crix:open-external', (e, url) => openExternalSafe(String(url || '')));
+// The page asks for these through preload.js. Only the game (or the offline
+// page) may open links: a sign-in page shown in the same window must not.
+ipcMain.on('crix:open-external', (e, url) => {
+    const from = (e.senderFrame && e.senderFrame.url) || '';
+    if (isGameUrl(from) || isOfflinePage(from)) openExternalSafe(String(url || ''));
+});
 ipcMain.on('crix:version', e => { e.returnValue = app.getVersion(); });
+
+/* ---------- PERMISSIONS ----------
+   Electron says yes to everything a page asks for unless it is told
+   otherwise, so 1.1 let the game — or anything loaded into it — switch the
+   microphone on without asking. Now the microphone and camera are asked
+   about once and the answer is remembered (Help → Microphone & camera to
+   change it). Only the game's own site can ask at all, and anything a game
+   has no use for is refused. */
+const PERMS_FILE = () => path.join(app.getPath('userData'), 'permissions.json');
+function readPerms() {
+    try { return JSON.parse(fs.readFileSync(PERMS_FILE(), 'utf8')) || {}; } catch (e) { return {}; }
+}
+function savePerms(p) {
+    try { fs.writeFileSync(PERMS_FILE(), JSON.stringify(p, null, 2)); } catch (e) { console.warn('[perms]', e.message); }
+}
+const ALWAYS_OK = ['fullscreen', 'clipboard-sanitized-write', 'notifications'];
+const DEVICE = { audio: { key: 'microphone', what: 'your microphone', why: 'for voice chat' },
+                 video: { key: 'camera',     what: 'your camera',     why: 'for video calls in CRIX Chat' } };
+
+let asking = Promise.resolve();          // one question on screen at a time
+function askDevice(type, parent) {
+    const d = DEVICE[type];
+    asking = asking.then(async () => {
+        const saved = readPerms()[d.key];
+        if (saved === 'allow' || saved === 'deny') return saved === 'allow';   // answered while queued
+        const r = await dialog.showMessageBox(parent && !parent.isDestroyed() ? parent : undefined, {
+            type: 'question', title: 'Flappy Crix',
+            message: `Let Flappy Crix use ${d.what}?`,
+            detail: `It is only used ${d.why}, and only while you have it switched on.`,
+            buttons: ['Allow', "Don't allow"], defaultId: 0, cancelId: 1,
+            checkboxLabel: 'Remember my choice', checkboxChecked: true
+        });
+        const ok = r.response === 0;
+        if (r.checkboxChecked) savePerms(Object.assign(readPerms(), { [d.key]: ok ? 'allow' : 'deny' }));
+        return ok;
+    });
+    return asking;
+}
+
+function setupPermissions(ses) {
+    ses.setPermissionRequestHandler(async (contents, permission, callback, details) => {
+        const from = (details && (details.requestingUrl || details.securityOrigin)) || (contents && contents.getURL()) || '';
+        if (!isGameOrigin(from)) return callback(false);
+        if (ALWAYS_OK.includes(permission)) return callback(true);
+        if (permission !== 'media') return callback(false);
+        const types = ((details && details.mediaTypes) || []).filter(t => DEVICE[t]);
+        if (!types.length) return callback(false);       // screen capture goes elsewhere
+        const parent = contents ? BrowserWindow.fromWebContents(contents) : null;
+        for (const t of types) {
+            const saved = readPerms()[DEVICE[t].key];
+            const ok = saved === 'allow' ? true : saved === 'deny' ? false : await askDevice(t, parent);
+            if (!ok) return callback(false);
+        }
+        callback(true);
+    });
+    // What a page sees when it checks without asking. A device not yet
+    // decided reads as allowed, so the game goes on to ask (and we prompt);
+    // one the player said no to reads as blocked.
+    ses.setPermissionCheckHandler((contents, permission, origin, details) => {
+        if (!isGameOrigin(origin)) return false;
+        if (ALWAYS_OK.includes(permission)) return true;
+        if (permission === 'media') {
+            const d = DEVICE[details && details.mediaType];
+            return !d || readPerms()[d.key] !== 'deny';
+        }
+        return false;
+    });
+}
+
+function resetDevicePermissions() {
+    const p = readPerms();
+    delete p.microphone; delete p.camera;
+    savePerms(p);
+    dialog.showMessageBox(win, { type: 'info', title: 'Flappy Crix',
+        message: 'Microphone and camera reset.',
+        detail: 'The game will ask again next time it needs them.' });
+}
 
 // Sign-in pop-ups: a small window of their own, still able to hand the
 // result back to the game that opened it.
@@ -80,7 +191,7 @@ const AUTH_POPUP = {
         backgroundColor: '#FFFFFF',
         title: 'Sign in',
         icon: path.join(__dirname, 'icon.ico'),
-        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: DEV_TOOLS }
     }
 };
 
@@ -117,6 +228,7 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
+            devTools: DEV_TOOLS,
             backgroundThrottling: false   // keeps the game running when unfocused
         }
     });
@@ -137,10 +249,11 @@ function createWindow() {
     });
 
     win.webContents.on('will-navigate', (e, url) => {
-        // The game, the waiting page, and the sign-in round trip stay here
-        if (isGameUrl(url) || isAuthUrl(url) || url.startsWith('file:')) return;
+        // The game, the sign-in round trip and the waiting page stay here.
+        // No other file on the computer can be opened in the window.
+        if (isGameUrl(url) || isAuthUrl(url) || isOfflinePage(url)) return;
         e.preventDefault();
-        openExternalSafe(url);
+        if (!url.startsWith('file:')) openExternalSafe(url);
     });
 
     win.webContents.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
@@ -164,6 +277,8 @@ function createWindow() {
 
 // Pop-ups (sign-in) follow the same rules as the main window
 app.on('web-contents-created', (e, contents) => {
+    // Nothing gets to embed another page with its own rules
+    contents.on('will-attach-webview', ev => ev.preventDefault());
     if (contents.getType() !== 'window') return;
     contents.on('did-create-window', child => {
         child.webContents.setWindowOpenHandler(({ url }) => {
@@ -200,6 +315,7 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
         label: 'Help',
         submenu: [
             { label: 'Game files', click: () => shell.openPath(app.getPath('userData')) },
+            { label: 'Microphone & camera: ask again', click: resetDevicePermissions },
             { label: 'Check for updates',
               click: () => autoUpdater
                 ? autoUpdater.checkForUpdates().catch(() => {})
@@ -226,7 +342,9 @@ if (!app.requestSingleInstanceLock()) {
         if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
     });
     app.whenReady().then(() => {
+        setupPermissions(session.defaultSession);
         createWindow();
+        smokeTest();
         setupUpdates();
         watchGameVersion();     // 1.0.0 started this twice
     });
@@ -303,9 +421,18 @@ function openChat() {
         width: 440, height: 800, backgroundColor: '#0A0A0F',
         title: 'CRIX Chat', autoHideMenuBar: true,
         icon: path.join(__dirname, 'icon.ico'),
-        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: DEV_TOOLS }
     });
     chatWin.loadURL(SITE + '/crixchat');
+    // Chat and its sign-in stay here; any other link opens in the browser
+    chatWin.webContents.on('will-navigate', (e, url) => {
+        try {
+            const u = new URL(url);
+            if ((INTERNAL.includes(u.hostname) && u.pathname.startsWith('/crixchat')) || isAuthUrl(url)) return;
+        } catch (err) {}
+        e.preventDefault();
+        if (!url.startsWith('file:')) openExternalSafe(url);
+    });
     chatWin.on('page-title-updated', e => e.preventDefault());
     chatWin.on('closed', () => { chatWin = null; });
     chatWin.webContents.setWindowOpenHandler(({ url }) => {
@@ -313,6 +440,25 @@ function openChat() {
         openExternalSafe(url);
         return { action: 'deny' };
     });
+}
+
+/* ---------- SMOKE TEST ----------
+   The build checks that the finished exe really starts: it runs it with
+   CRIX_SMOKE_TEST set to a file name, and the app writes down what it
+   loaded there and quits. Nothing happens unless that is set. */
+function smokeTest() {
+    const out = process.env.CRIX_SMOKE_TEST;
+    if (!out || !win) return;
+    const finish = (ok, url) => {
+        try { fs.writeFileSync(out, JSON.stringify({ ok, url, version: app.getVersion(),
+              electron: process.versions.electron, devTools: DEV_TOOLS })); } catch (e) {}
+        app.exit(ok ? 0 : 3);
+    };
+    win.webContents.on('did-finish-load', () => {
+        const url = win.webContents.getURL();
+        if (isGameUrl(url) || isOfflinePage(url)) setTimeout(() => finish(true, url), 1500);
+    });
+    setTimeout(() => finish(false, win ? win.webContents.getURL() : ''), 90000);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

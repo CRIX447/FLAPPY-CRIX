@@ -2,6 +2,10 @@
 # DRAFT release, so nobody needs Node or a Windows build setup locally.
 # Run it from the Actions tab ("Run workflow"), then check the draft under
 # Releases and press Publish. Players get nothing until then.
+#
+# After building, it starts the finished app to prove it works, and tries
+# the tricks people use to tamper with Electron apps to prove they fail.
+# Only publish the draft if the run is green.
 name: Build Windows app
 
 on:
@@ -18,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22        # Electron 44 needs 22.12 or newer to install
 
       - name: Install
         run: npm install
@@ -29,6 +33,53 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Nothing is code-signed, so skip fetching the signing toolkit
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Check the fuses (locks built into the exe)
+        shell: pwsh
+        run: |
+          $out = npx --no-install @electron/fuses read --app "dist\win-unpacked\Flappy Crix.exe" | Out-String
+          $out
+          foreach ($want in 'RunAsNode is Disabled', 'EnableNodeOptionsEnvironmentVariable is Disabled',
+                            'EnableNodeCliInspectArguments is Disabled', 'OnlyLoadAppFromAsar is Enabled') {
+            if ($out -notmatch [regex]::Escape($want)) { throw "Expected: $want" }
+          }
+
+      - name: Start the app — it must load the game
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'dist\win-unpacked\Flappy Crix.exe'
+          $out = Join-Path $env:RUNNER_TEMP 'smoke.json'
+          $env:CRIX_SMOKE_TEST = $out
+          $p = Start-Process -FilePath $exe -PassThru
+          if (-not $p.WaitForExit(150000)) { $p.Kill(); throw 'The app did not finish starting in 2.5 minutes' }
+          if (-not (Test-Path $out)) { throw "The app quit (exit $($p.ExitCode)) without loading anything" }
+          $r = Get-Content $out -Raw | ConvertFrom-Json
+          $r
+          if (-not $r.ok) { throw 'The app started but never loaded the game' }
+          if ($r.devTools) { throw 'Developer tools are switched on in the built app' }
+
+      - name: A debugging port is refused
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'dist\win-unpacked\Flappy Crix.exe'
+          $out = Join-Path $env:RUNNER_TEMP 'smoke-debug.json'
+          $env:CRIX_SMOKE_TEST = $out
+          $p = Start-Process -FilePath $exe -ArgumentList '--remote-debugging-port=9333' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'It kept running with a debugging port instead of refusing' }
+          if (Test-Path $out) { throw 'It loaded the game with a debugging port open' }
+          "Refused (exit $($p.ExitCode))"
+
+      - name: It cannot be used as plain Node
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'dist\win-unpacked\Flappy Crix.exe'
+          $log = Join-Path $env:RUNNER_TEMP 'as-node.txt'
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:CRIX_SMOKE_TEST = Join-Path $env:RUNNER_TEMP 'smoke-node.json'
+          $p = Start-Process -FilePath $exe -ArgumentList '-e', "`"console.log('RAN_AS_NODE')`"" -RedirectStandardOutput $log -PassThru
+          if (-not $p.WaitForExit(150000)) { $p.Kill() }
+          if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'RAN_AS_NODE' -Quiet)) { throw 'The exe ran code as plain Node' }
+          'Not usable as Node'
 
       # A copy on the run itself too, in case the release step is ever refused
       - uses: actions/upload-artifact@v4
