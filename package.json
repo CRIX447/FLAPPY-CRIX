@@ -1,6 +1,6 @@
 {
   "name": "flappy-crix",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Flappy Crix — CRIX STUDIOS",
   "main": "main.js",
   "author": {
@@ -15,8 +15,8 @@
     "publish": "electron-builder --win --publish always"
   },
   "devDependencies": {
-    "electron": "^32.0.0",
-    "electron-builder": "^25.0.0",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
     "rcedit": "^4.0.1"
   },
   "build": {
@@ -32,6 +32,15 @@
       "icon.ico",
       "package.json"
     ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true,
+      "grantFileProtocolExtraPrivileges": false,
+      "loadBrowserProcessSpecificV8Snapshot": false
+    },
     "win": {
       "target": [
         {
@@ -49,9 +58,7 @@
       ],
       "icon": "icon.ico",
       "signAndEditExecutable": false,
-      "verifyUpdateCodeSignature": false,
-      "signingHashAlgorithms": null,
-      "certificateFile": null
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -78,6 +85,6 @@
     "afterPack": "build/afterPack.js"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.8.9"
   }
 }

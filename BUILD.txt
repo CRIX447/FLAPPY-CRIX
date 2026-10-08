@@ -7,7 +7,7 @@ One app. No launcher, no second download.
 
 WHAT YOU NEED
 -------------
-Node.js from nodejs.org (LTS). Tick "Add to PATH" during install.
+Node.js 22 or newer from nodejs.org (LTS). Tick "Add to PATH" during install.
 Put icon.ico in this folder. It must be a real .ico, not a renamed PNG.
 
 
@@ -19,7 +19,8 @@ GitHub builds it for you on a Windows machine:
     2. Run workflow
     3. About 5 minutes later a DRAFT release appears under Releases,
        with the installer, the portable exe and latest.yml attached.
-    4. Check it, then press "Publish release". Nobody gets it until then.
+    4. Check the run is green (it starts the app and tries to tamper
+       with it), then press "Publish release". Nobody gets it until then.
 
 Change "version" in package.json before each new release — a release
 for a version that already exists is refused.
@@ -31,7 +32,7 @@ BUILD ON YOUR PC
     npm run build
 
 Output in dist\:
-    FlappyCrixSetup-1.1.1.exe    installer
+    FlappyCrixSetup-1.2.0.exe    installer
     FlappyCrix.exe               portable, runs anywhere
 
 If the installer does not appear, NSIS failed to download. Use:
@@ -106,3 +107,18 @@ WHAT CHANGED IN 1.1.0
   - The version check ran twice and used Node's networking, which ignores
     proxies; it now runs once through the same network as the game
   - The window always appears, even when the first load fails
+
+
+SECURITY (1.2.0)
+----------------
+- Electron 44 (32 no longer gets security fixes).
+- The microphone and camera are asked about once, not switched on
+  silently. Help > "Microphone & camera: ask again" resets the answer.
+- Fuses (package.json > build > electronFuses) stop the exe being run as
+  plain Node, NODE_OPTIONS and --inspect, and loading code from outside
+  app.asar. Debugging ports are refused at start-up. No developer tools.
+- Only the game's own site can ask for permissions, and the window can
+  only open the game, sign-in pages and the offline page.
+- Still not code-signed: Windows SmartScreen warns, and updates are trusted
+  because they come from this repo's releases over HTTPS. A code signing
+  certificate is the fix for both.
