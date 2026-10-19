@@ -74,7 +74,6 @@ this for native changes — the icon, permissions, the menu. Rare.
 WHAT IS IN IT
 -------------
   - The full game
-  - CRIX Chat in its own window, Ctrl+Shift+C
   - Stats, notifications and patch notes (already in the game)
   - Menu access to files, terms, privacy and update checking
   - Sign in with Google through your own browser — the app signs itself

@@ -33,13 +33,17 @@ catch (e) { console.log('electron-updater not installed — auto-update off'); }
 // CRIX_GAME_URL points a development run (npm start) at a local copy of the
 // site. A built exe always loads the real one.
 const GAME_URL = (!app.isPackaged && process.env.CRIX_GAME_URL) ||
-                 'https://crixgamingvr.com/flappycrix';
+                 'https://flappycrix.vercel.app/';
 const SITE = new URL(GAME_URL).origin;
 
 // Only these load inside the window. Everything else opens in the real
 // browser, so the app never turns into a general-purpose web browser.
-const INTERNAL = ['crixgamingvr.com', 'www.crixgamingvr.com', new URL(GAME_URL).hostname];
-const INTERNAL_PATHS = ['/flappycrix', '/game'];   // /flappycrix-og is the birthday season
+// The game lives on its own site now (flappycrix.io once that is ready);
+// crixgamingvr.com stays on the list because its old /flappycrix address
+// forwards there.
+const INTERNAL = ['flappycrix.vercel.app', 'flappycrix.io', 'www.flappycrix.io',
+                  'crixgamingvr.com', 'www.crixgamingvr.com', new URL(GAME_URL).hostname];
+const INTERNAL_PATHS = ['/flappycrix', '/game', '/index'];   // /flappycrix-og is the birthday season
 
 // The site the game comes from — the only one allowed to ask for anything
 function isGameOrigin(url) {
@@ -59,6 +63,8 @@ function isGameUrl(url) {
     try {
         const u = new URL(url);
         if (!INTERNAL.includes(u.hostname)) return false;
+        // The front page of the game's own site is the game
+        if (u.pathname === '/' && !/crixgamingvr\.com$/.test(u.hostname)) return true;
         return INTERNAL_PATHS.some(p => u.pathname.startsWith(p));
     } catch (e) { return false; }
 }
@@ -119,8 +125,9 @@ function savePerms(p) {
     try { fs.writeFileSync(PERMS_FILE(), JSON.stringify(p, null, 2)); } catch (e) { console.warn('[perms]', e.message); }
 }
 const ALWAYS_OK = ['fullscreen', 'clipboard-sanitized-write', 'notifications'];
-const DEVICE = { audio: { key: 'microphone', what: 'your microphone', why: 'for voice chat' },
-                 video: { key: 'camera',     what: 'your camera',     why: 'for video calls in CRIX Chat' } };
+// Only the microphone: the camera was for CRIX Chat's video calls, and CRIX
+// Chat is gone, so nothing in the app may switch a camera on.
+const DEVICE = { audio: { key: 'microphone', what: 'your microphone', why: 'for voice chat' } };
 
 let asking = Promise.resolve();          // one question on screen at a time
 function askDevice(type, parent) {
@@ -148,8 +155,9 @@ function setupPermissions(ses) {
         if (!isGameOrigin(from)) return callback(false);
         if (ALWAYS_OK.includes(permission)) return callback(true);
         if (permission !== 'media') return callback(false);
-        const types = ((details && details.mediaTypes) || []).filter(t => DEVICE[t]);
-        if (!types.length) return callback(false);       // screen capture goes elsewhere
+        const types = (details && details.mediaTypes) || [];
+        // screen capture goes elsewhere; anything else (the camera) is a no
+        if (!types.length || types.some(t => !DEVICE[t])) return callback(false);
         const parent = contents ? BrowserWindow.fromWebContents(contents) : null;
         for (const t of types) {
             const saved = readPerms()[DEVICE[t].key];
@@ -165,6 +173,7 @@ function setupPermissions(ses) {
         if (!isGameOrigin(origin)) return false;
         if (ALWAYS_OK.includes(permission)) return true;
         if (permission === 'media') {
+            if (details && details.mediaType === 'video') return false;
             const d = DEVICE[details && details.mediaType];
             return !d || readPerms()[d.key] !== 'deny';
         }
@@ -177,7 +186,7 @@ function resetDevicePermissions() {
     delete p.microphone; delete p.camera;
     savePerms(p);
     dialog.showMessageBox(win, { type: 'info', title: 'Flappy Crix',
-        message: 'Microphone and camera reset.',
+        message: 'Microphone reset.',
         detail: 'The game will ask again next time it needs them.' });
 }
 
@@ -298,31 +307,29 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
             { label: 'Fullscreen', accelerator: 'F11',
               click: () => win?.setFullScreen(!win.isFullScreen()) },
             { type: 'separator' },
-            { label: 'CRIX Chat', accelerator: 'Ctrl+Shift+C', click: openChat },
-            { type: 'separator' },
             { role: 'quit' }
         ]
     },
     {
         label: 'Links',
         submenu: [
-            { label: 'Website', click: () => openExternalSafe('https://crixgamingvr.com') },
+            { label: 'CRIXGAMING VR', click: () => openExternalSafe('https://crixgamingvr.com') },
             { label: 'Discord', click: () => openExternalSafe('https://discord.com/invite/MbQvJGDAst') },
-            { label: 'All links', click: () => openExternalSafe('https://crixgamingvr.com/bio') }
+            { label: 'FAQ & rules', click: () => openExternalSafe(SITE + '/faq') }
         ]
     },
     {
         label: 'Help',
         submenu: [
             { label: 'Game files', click: () => shell.openPath(app.getPath('userData')) },
-            { label: 'Microphone & camera: ask again', click: resetDevicePermissions },
+            { label: 'Microphone: ask again', click: resetDevicePermissions },
             { label: 'Check for updates',
               click: () => autoUpdater
                 ? autoUpdater.checkForUpdates().catch(() => {})
                 : dialog.showMessageBox(win, { message: 'Auto-update is not available in this build.' }) },
             { type: 'separator' },
-            { label: 'Terms of Service', click: () => openExternalSafe('https://crixgamingvr.com/terms') },
-            { label: 'Privacy Policy', click: () => openExternalSafe('https://crixgamingvr.com/privacy') },
+            { label: 'Terms of Service', click: () => openExternalSafe(SITE + '/terms') },
+            { label: 'Privacy Policy', click: () => openExternalSafe(SITE + '/privacy') },
             { type: 'separator' },
             { label: 'About', click: () => dialog.showMessageBox(win, {
                 type: 'info', title: 'Flappy Crix',
@@ -410,36 +417,6 @@ function setupUpdates() {
 
     autoUpdater.checkForUpdates().catch(() => {});
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 60 * 60 * 1000);
-}
-
-/* ---------- CRIX CHAT ---------- */
-// Its own window, sharing the session so you are already signed in
-let chatWin = null;
-function openChat() {
-    if (chatWin) { chatWin.focus(); return; }
-    chatWin = new BrowserWindow({
-        width: 440, height: 800, backgroundColor: '#0A0A0F',
-        title: 'CRIX Chat', autoHideMenuBar: true,
-        icon: path.join(__dirname, 'icon.ico'),
-        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: DEV_TOOLS }
-    });
-    chatWin.loadURL(SITE + '/crixchat');
-    // Chat and its sign-in stay here; any other link opens in the browser
-    chatWin.webContents.on('will-navigate', (e, url) => {
-        try {
-            const u = new URL(url);
-            if ((INTERNAL.includes(u.hostname) && u.pathname.startsWith('/crixchat')) || isAuthUrl(url)) return;
-        } catch (err) {}
-        e.preventDefault();
-        if (!url.startsWith('file:')) openExternalSafe(url);
-    });
-    chatWin.on('page-title-updated', e => e.preventDefault());
-    chatWin.on('closed', () => { chatWin = null; });
-    chatWin.webContents.setWindowOpenHandler(({ url }) => {
-        if (isAuthUrl(url)) return AUTH_POPUP;
-        openExternalSafe(url);
-        return { action: 'deny' };
-    });
 }
 
 /* ---------- SMOKE TEST ----------

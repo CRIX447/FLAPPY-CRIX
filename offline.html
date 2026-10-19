@@ -35,7 +35,7 @@
    nobody has to sit there pressing a button. */
 (function () {
   var q = new URLSearchParams(location.search);
-  var game = q.get('url') || 'https://crixgamingvr.com/flappycrix';
+  var game = q.get('url') || 'https://flappycrix.vercel.app/';
   var why = q.get('reason');
   if (why) document.getElementById('why').textContent = '(' + why + ')';
   var status = document.getElementById('status');
