@@ -56,7 +56,8 @@ namespace FlappyCrix
                 shownTrail = trailId;
                 var c = Catalog.CosmeticById(trailId);
                 var g = new Gradient();
-                if (c != null && c.Colours != null && c.Colours.Length > 0)
+                HasTrail = c != null && c.Colours != null && c.Colours.Length > 0;
+                if (HasTrail)
                 {
                     int n = Mathf.Min(8, c.Colours.Length);
                     var keys = new GradientColorKey[n];
