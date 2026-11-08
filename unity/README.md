@@ -19,6 +19,31 @@ If something looks wrong after an update: **Flappy Crix → Set Up Project**.
 **Flappy Crix → Build → Windows / Mac / Linux / Android (APK) / iOS (Xcode project).**
 The finished game appears in `unity/Builds/…` and its folder opens. (Mac and iOS builds need a Mac.)
 
+## Build it on GitHub (no Unity needed on your PC)
+
+GitHub can build every version for you and put the downloads on a draft release.
+It needs your free Unity account, once:
+
+1. **Get your Unity licence file.** Open Unity Hub, sign in, go to *Settings → Licenses* and make
+   sure there's a **Personal** licence (Add → Get a free personal licence). The licence file is then at
+   - Windows: `C:\ProgramData\Unity\Unity_lic.ulf`
+   - Mac: `/Library/Application Support/Unity/Unity_lic.ulf`
+
+   Open it with Notepad and copy **everything** in it.
+2. **Add three secrets** on GitHub: the FLAPPY-CRIX repo → *Settings → Secrets and variables →
+   Actions → New repository secret*:
+   - `UNITY_LICENSE`: paste the whole licence file
+   - `UNITY_EMAIL`: the email you sign in to Unity with
+   - `UNITY_PASSWORD`: your Unity password
+
+   (Secrets can't be seen again by anyone, not even in the build logs.)
+3. **Build:** *Actions → Build Unity game → Run workflow* (leave "all", or type e.g. `windows,android`).
+   The first build takes about 30-60 minutes; later ones are faster.
+4. **Download:** *Releases* → the new **draft** → `FlappyCrix-windows.zip`, `FlappyCrix-mac.zip`,
+   `FlappyCrix-linux.zip`, `FlappyCrix-Android.apk`. Press **Publish** when you're happy to share it.
+
+If a build goes red, open the run, click the red job and copy the error to Claude.
+
 ## Phase 1: the game
 
 | | |
