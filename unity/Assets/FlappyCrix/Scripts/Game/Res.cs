@@ -184,6 +184,58 @@ namespace FlappyCrix
             return t;
         }
 
+        // ------------------------------------------------------------------ the website's shapes (rounded cards, pills)
+
+        static readonly Dictionary<string, Sprite> shapes = new Dictionary<string, Sprite>();
+
+        /// <summary>
+        /// A rounded rectangle for UI (9-sliced, radius r): fill, or just its edge (edge = border width).
+        /// left / right colours make a left-to-right gradient (the site's red-to-orange buttons).
+        /// </summary>
+        public static Sprite Rounded(int r, int edge, Color left, Color right)
+        {
+            string key = r + "|" + edge + "|" + ColorUtility.ToHtmlStringRGBA(left) + ColorUtility.ToHtmlStringRGBA(right);
+            Sprite s;
+            if (shapes.TryGetValue(key, out s)) return s;
+            int w = r * 2 + 64, h = r * 2 + 4;
+            var t = NewTex(w, h, "rounded");
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float cx = Mathf.Clamp(x + 0.5f, r, w - r), cy = Mathf.Clamp(y + 0.5f, r, h - r);
+                    float d = Mathf.Sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy));
+                    float a = Mathf.Clamp01(r - d + 0.5f);                          // anti-aliased outside
+                    if (edge > 0) a *= Mathf.Clamp01(d - (r - edge) + 0.5f);         // hollow inside
+                    Color c = Color.Lerp(left, right, x / (float)(w - 1));
+                    px[y * w + x] = new Color(c.r, c.g, c.b, c.a * a);
+                }
+            t.SetPixels32(px); t.Apply(false);
+            s = Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100, 0, SpriteMeshType.FullRect, new Vector4(r + 1, r + 1, r + 1, r + 1));
+            s.name = "rounded";
+            shapes[key] = s;
+            return s;
+        }
+
+        public static Sprite Rounded(int r, int edge = 0) { return Rounded(r, edge, Color.white, Color.white); }
+
+        /// <summary>The site's background: near black with a faint red grid (tiles).</summary>
+        public static Sprite Grid()
+        {
+            Sprite s;
+            if (shapes.TryGetValue("grid", out s)) return s;
+            int n = 48;
+            var t = NewTex(n, n, "grid", false);
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                    px[y * n + x] = (x == 0 || y == 0) ? new Color32(255, 70, 85, 16) : new Color32(0, 0, 0, 0);
+            t.SetPixels32(px); t.Apply(false);
+            s = Sprite.Create(t, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100, 0, SpriteMeshType.FullRect);
+            shapes["grid"] = s;
+            return s;
+        }
+
         /// <summary>Vertical gradient (top colour first).</summary>
         public static Texture2D VGradient(Color top, Color bottom, int h = 256)
         {
@@ -227,7 +279,59 @@ namespace FlappyCrix
             return t;
         }
 
-        /// <summary>Horizontal gradient across a pipe (dark edges, bright middle) with neon edges.</summary>
+        /// <summary>A soft puffy cloud: a few overlapping round blobs, white, edges faded.</summary>
+        public static Texture2D Cloud()
+        {
+            int w = 256, h = 112;
+            var t = NewTex(w, h, "cloud");
+            var px = new Color32[w * h];
+            float[,] blobs = { { 60, 44, 38 }, { 110, 62, 50 }, { 165, 52, 42 }, { 205, 40, 30 }, { 128, 34, 40 } };
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float a = 0;
+                    for (int b = 0; b < blobs.GetLength(0); b++)
+                    {
+                        float dx = x - blobs[b, 0], dy = y - blobs[b, 1];
+                        float d = Mathf.Sqrt(dx * dx + dy * dy);
+                        a = Mathf.Max(a, Mathf.Clamp01((blobs[b, 2] - d) / 3f));
+                    }
+                    if (y < 14) a *= y / 14f;       // flat bottom
+                    px[y * w + x] = new Color32(255, 255, 255, (byte)(a * 255));
+                }
+            t.SetPixels32(px); t.Apply(false);
+            return t;
+        }
+
+        /// <summary>The row of round green bushes the site draws in front of the city (tiles left to right).</summary>
+        public static Texture2D Bushes(Color colour)
+        {
+            int w = 512, h = 64;
+            var t = NewTex(w, h, "bushes", false);
+            t.wrapMode = TextureWrapMode.Repeat;
+            var px = new Color32[w * h];
+            Color32 c = colour, clear = new Color32(0, 0, 0, 0);
+            Color32 hi = Color.Lerp(colour, Color.white, 0.12f);
+            var rng = new System.Random(21);
+            var bumps = new List<Vector3>();
+            for (int x = 0; x < w; x += 26 + rng.Next(18)) bumps.Add(new Vector3(x, 0, 22 + rng.Next(18)));
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    px[y * w + x] = clear;
+                    foreach (var b in bumps)
+                    {
+                        // wrap so the tile joins up
+                        float dx = Mathf.Min(Mathf.Abs(x - b.x), w - Mathf.Abs(x - b.x));
+                        float d = Mathf.Sqrt(dx * dx + y * y);
+                        if (d < b.z) { px[y * w + x] = d > b.z - 3 && y > 6 ? hi : c; break; }
+                    }
+                }
+            t.SetPixels32(px); t.Apply(false);
+            return t;
+        }
+
+        /// <summary>Horizontal gradient across a pipe, dark edges to a bright middle, the site's look.</summary>
         public static Texture2D PipeBody(Color[] stops, Color neon)
         {
             int w = 64, h = 4;
@@ -239,14 +343,14 @@ namespace FlappyCrix
                 float seg = f * (stops.Length - 1);
                 int i = Mathf.Min(stops.Length - 2, (int)seg);
                 Color c = Color.Lerp(stops[i], stops[i + 1], seg - i);
-                if (x < 2 || x >= w - 2) c = neon;
+                if (neon.a > 0 && (x < 2 || x >= w - 2)) c = neon;
                 for (int y = 0; y < h; y++) px[y * w + x] = c;
             }
             t.SetPixels32(px); t.Apply(false);
             return t;
         }
 
-        /// <summary>The ground: dark plates with hazard stripes and a neon edge on top.</summary>
+        /// <summary>The ground, as on the site: a dark strip with soft diagonal stripes and a lighter lip on top.</summary>
         public static Texture2D Ground(Color baseC, Color stripe, Color edge)
         {
             int w = 128, h = 128;
@@ -257,10 +361,10 @@ namespace FlappyCrix
                 {
                     Color c = baseC * (0.85f + 0.15f * (y / (float)h));
                     c.a = 1;
-                    bool s = ((x + y) / 16) % 2 == 0 && y > h - 30 && y < h - 8;
-                    if (s) c = Color.Lerp(c, stripe, 0.55f);
-                    if (y >= h - 6) c = edge;
-                    if (x % 64 == 0 && y < h - 8) c = Color.Lerp(c, Color.black, 0.4f);
+                    bool s = ((x + y) / 16) % 2 == 0 && y < h - 8;
+                    if (s) c = Color.Lerp(c, stripe, 0.5f);
+                    if (y >= h - 8) c = edge;
+                    else if (y >= h - 10) c = Color.Lerp(c, Color.black, 0.35f);
                     px[y * w + x] = c;
                 }
             t.SetPixels32(px); t.Apply(false);

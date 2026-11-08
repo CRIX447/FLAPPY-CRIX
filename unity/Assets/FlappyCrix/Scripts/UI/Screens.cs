@@ -63,11 +63,21 @@ namespace FlappyCrix
             Tick(dt);
         }
 
+        /// <summary>The website's background: near black (#0A0A0F) with its faint red grid.</summary>
         protected static Image Shade(Transform parent, float a)
         {
-            var i = Ui.Img(parent, "Shade", Res.White, new Color(0.02f, 0.01f, 0.04f, a));
+            var i = Ui.Img(parent, "Shade", Res.White, new Color(Ui.Ink.r, Ui.Ink.g, Ui.Ink.b, a));
             Ui.Fill(i.rectTransform);
+            var g = Ui.Img(parent, "Grid", Res.Grid(), new Color(1, 1, 1, Mathf.Clamp01(a + 0.1f)));
+            g.type = Image.Type.Tiled;
+            Ui.Fill(g.rectTransform);
             return i;
+        }
+
+        /// <summary>The site's little green line under the title.</summary>
+        protected static Text Tagline(Transform parent, string text, int size)
+        {
+            return Ui.Label(parent, text, size, Ui.Green, TextAnchor.MiddleLeft, false);
         }
     }
 
@@ -130,7 +140,7 @@ namespace FlappyCrix
 
             var barBack = Ui.Img(Root, "BarBack", Res.White, new Color(1, 1, 1, 0.08f));
             Ui.Place(barBack.rectTransform, new Vector2(0.5f, 0.32f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 10));
-            fill = Ui.Img(barBack.rectTransform, "Fill", Res.White, Ui.Red);
+            fill = Ui.Img(barBack.rectTransform, "Fill", Res.Rounded(5, 0, Ui.Red, Ui.Orange), Color.white);
             fill.rectTransform.anchorMin = new Vector2(0, 0); fill.rectTransform.anchorMax = new Vector2(0, 1);
             fill.rectTransform.pivot = new Vector2(0, 0.5f); fill.rectTransform.sizeDelta = new Vector2(0, 0);
             var glow = Ui.Img(fill.rectTransform, "Glow", Res.Glow, new Color(1, 0.4f, 0.3f, 0.8f));
@@ -138,7 +148,7 @@ namespace FlappyCrix
 
             status = Ui.Label(Root, "LOADING", 30, Color.white, TextAnchor.MiddleLeft);
             Ui.Place(status.rectTransform, new Vector2(0.5f, 0.32f), new Vector2(0, 0.5f), new Vector2(-450, 42), new Vector2(700, 40));
-            percent = Ui.Label(Root, "0%", 30, Ui.Red, TextAnchor.MiddleRight);
+            percent = Ui.Label(Root, "0%", 30, Ui.Orange, TextAnchor.MiddleRight);
             Ui.Place(percent.rectTransform, new Vector2(0.5f, 0.32f), new Vector2(1, 0.5f), new Vector2(450, 42), new Vector2(200, 40));
             tip = Ui.Label(Root, "", 26, Ui.Dim, TextAnchor.MiddleCenter, false);
             Ui.Place(tip.rectTransform, new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400, 60));
@@ -177,12 +187,12 @@ namespace FlappyCrix
         public TitleScreen(Transform canvas, string version) : base(canvas, "Title")
         {
             Shade(Root, 0.35f);
-            var band = Ui.Img(Root, "Band", Res.White, new Color(0, 0, 0, 0.45f));
+            var band = Ui.Img(Root, "Band", Res.White, new Color(Ui.Ink.r, Ui.Ink.g, Ui.Ink.b, 0.55f));
             Ui.Place(band.rectTransform, new Vector2(0.5f, 0.56f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(4000, 330));
             logo = GlitchText.Make(Root, "FLAPPY CRIX", 190, Color.white, TextAnchor.MiddleCenter);
             Ui.Place((RectTransform)logo.transform, new Vector2(0.5f, 0.58f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(2000, 260));
             logo.Intensity = 1.4f;
-            var sub = Ui.Label(Root, "T A P  ·  C O L L E C T  ·  D R I P", 30, Ui.Red, TextAnchor.MiddleCenter);
+            var sub = Ui.Label(Root, "T A P   ·   C O L L E C T   ·   D R I P", 32, Ui.Green, TextAnchor.MiddleCenter, false);
             Ui.Place(sub.rectTransform, new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 50));
             press = Ui.Label(Root, Settings.IsMobile ? "TAP TO START" : "PRESS ANY BUTTON", 44, Color.white, TextAnchor.MiddleCenter);
             Ui.Place(press.rectTransform, new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400, 70));
@@ -224,8 +234,10 @@ namespace FlappyCrix
 
             var logo = GlitchText.Make(Root, "FLAPPY CRIX", 110, Color.white, TextAnchor.MiddleLeft);
             Ui.Place((RectTransform)logo.transform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(110, -70), new Vector2(1100, 150));
-            var tag = Ui.Label(Root, "CRIX STUDIOS", 24, Ui.Red, TextAnchor.MiddleLeft);
-            Ui.Place(tag.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -212), new Vector2(600, 40));
+            var tag = Tagline(Root, "T A P   ·   C O L L E C T   ·   D R I P", 24);
+            Ui.Place(tag.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(118, -212), new Vector2(800, 40));
+            var line = Ui.Img(Root, "Line", Res.Rounded(2, 0, Ui.Red, new Color(Ui.Orange.r, Ui.Orange.g, Ui.Orange.b, 0)), Color.white);
+            Ui.Place(line.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -240), new Vector2(560, 4));
 
             var list = Ui.Rect(Root, "Buttons");
             Ui.Place(list, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -110), new Vector2(640, 800));
@@ -235,47 +247,52 @@ namespace FlappyCrix
             v.childForceExpandHeight = false; v.childForceExpandWidth = false;
 
             var items = new List<Selectable>();
-            items.Add(Ui.MenuButton(list, "PLAY", "Solo run. Beat your best.", play, 560, 88));
-            items.Add(Ui.MenuButton(list, "PLAY ONLINE", "Race website players: Free Play, Race, Last One Standing, Coin Rush", online, 560, 88));
-            items.Add(Ui.MenuButton(list, "SHOP", null, shop, 560, 60));
-            dailyButton = Ui.MenuButton(list, "DAILY", null, daily, 560, 60);
+            items.Add(Ui.MenuButton(list, "PLAY", "Solo run. Beat your best.", play, 560, 88, "25b6", Ui.Look.Primary));
+            items.Add(Ui.MenuButton(list, "PLAY ONLINE", "Free Play, Race, Last One Standing, Coin Rush", online, 560, 88, "1f3ae", Ui.Look.Online));
+            items.Add(Ui.MenuButton(list, "SHOP", null, shop, 560, 60, "1f6d2"));
+            dailyButton = Ui.MenuButton(list, "DAILY", null, daily, 560, 60, "1f381");
             items.Add(dailyButton);
-            items.Add(Ui.MenuButton(list, "AWARDS", null, awards, 560, 60));
-            accountButton = Ui.MenuButton(list, "ACCOUNT", null, account, 560, 60);
+            items.Add(Ui.MenuButton(list, "AWARDS", null, awards, 560, 60, "1f3c6"));
+            accountButton = Ui.MenuButton(list, "ACCOUNT", null, account, 560, 60, "1f465");
             items.Add(accountButton);
-            items.Add(Ui.MenuButton(list, "SETTINGS", null, settings, 560, 60));
-            items.Add(Ui.MenuButton(list, "CREDITS", null, credits, 560, 60));
-            if (!Settings.IsMobile) items.Add(Ui.MenuButton(list, "QUIT", null, quit, 560, 60));
+            items.Add(Ui.MenuButton(list, "SETTINGS", null, settings, 560, 60, "2699"));
+            items.Add(Ui.MenuButton(list, "CREDITS", null, credits, 560, 60, "2728"));
+            if (!Settings.IsMobile) items.Add(Ui.MenuButton(list, "QUIT", null, quit, 560, 60, "1f6aa"));
             Ui.Chain(items.ToArray());
             FirstSelect = items[0];
 
             // player card on the right
-            var card = Ui.Img(Root, "Card", Res.Slant, new Color(0.05f, 0.03f, 0.08f, 0.82f));
-            Ui.Place(card.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 400));
-            cardRt = card.rectTransform;
-            var cardEdge = Ui.Img(card.rectTransform, "Edge", Res.SlantOutline, new Color(Ui.Red.r, Ui.Red.g, Ui.Red.b, 0.9f));
-            Ui.Fill(cardEdge.rectTransform);
-            var crt = card.rectTransform;
-            welcome = Ui.Label(crt, "PLAYER", 30, Color.white);
-            Ui.Place(welcome.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(70, -34), new Vector2(440, 44));
-            level = Ui.Label(crt, "LEVEL 1", 46, Ui.Gold);
-            Ui.Place(level.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(70, -84), new Vector2(440, 60));
-            var xpBack = Ui.Img(crt, "XpBack", Res.White, new Color(1, 1, 1, 0.1f));
-            Ui.Place(xpBack.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(72, -156), new Vector2(400, 10));
-            xpFill = Ui.Img(xpBack.rectTransform, "XpFill", Res.White, Ui.Gold);
+            var crt = Ui.Card(Root, "Card", Ui.Red);
+            Ui.Place(crt, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 440));
+            cardRt = crt;
+            // the bird in its framed square, as on the site's menu
+            var frame = Ui.Img(crt, "BirdFrame", Res.Rounded(20), new Color(0.07f, 0.07f, 0.1f, 1));
+            Ui.Place(frame.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(36, -30), new Vector2(120, 120));
+            var frameEdge = Ui.Img(frame.rectTransform, "Edge", Res.Rounded(20, 3, Ui.Red, Ui.Orange), Color.white);
+            Ui.Fill(frameEdge.rectTransform);
+            var birdPic = Ui.Img(frame.rectTransform, "Bird", Res.Get("bird"), Color.white);
+            birdPic.preserveAspect = true;
+            Ui.Fill(birdPic.rectTransform, 8, 8, 8, 8);
+            welcome = Ui.Label(crt, "PLAYER", 22, Ui.Dim, TextAnchor.MiddleLeft, false);
+            Ui.Place(welcome.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(176, -40), new Vector2(360, 36));
+            level = Ui.Label(crt, "LEVEL 1", 44, Color.white);
+            Ui.Place(level.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(176, -86), new Vector2(360, 56));
+            var xpBack = Ui.Img(crt, "XpBack", Res.Rounded(5), new Color(1, 1, 1, 0.1f));
+            Ui.Place(xpBack.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(178, -140), new Vector2(340, 10));
+            xpFill = Ui.Img(xpBack.rectTransform, "XpFill", Res.Rounded(5, 0, Ui.Red, Ui.Orange), Color.white);
             xpFill.rectTransform.anchorMin = Vector2.zero; xpFill.rectTransform.anchorMax = new Vector2(0, 1); xpFill.rectTransform.pivot = new Vector2(0, 0.5f);
             xpText = Ui.Label(crt, "", 20, Ui.Dim, TextAnchor.MiddleLeft, false);
-            Ui.Place(xpText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(72, -184), new Vector2(400, 30));
-            best = Stat(crt, "BEST", -236);
-            coins = Stat(crt, "COINS", -286);
-            games = Stat(crt, "GAMES", -336);
+            Ui.Place(xpText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(178, -164), new Vector2(340, 30));
+            coins = Stat(crt, "COINS", "coin", -210, Ui.Gold);
+            best = Stat(crt, "BEST", "1f3c6", -270, Color.white);
+            games = Stat(crt, "GAMES", "1f579", -330, Color.white);
         }
 
         static Texture2D HGrad()
         {
             var t = new Texture2D(256, 1, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
             var px = new Color32[256];
-            for (int x = 0; x < 256; x++) px[x] = new Color32(4, 2, 8, (byte)(Mathf.Clamp01(1 - x / 200f) * 215));
+            for (int x = 0; x < 256; x++) px[x] = new Color32(10, 10, 15, (byte)(Mathf.Clamp01(1 - x / 210f) * 225));
             t.SetPixels32(px); t.Apply(false);
             return t;
         }
@@ -287,21 +304,26 @@ namespace FlappyCrix
             if (portrait)
             {
                 Ui.Place(listRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-20, -280), new Vector2(640, 800));
-                Ui.Place(cardRt, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 120), new Vector2(560, 400));
+                Ui.Place(cardRt, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 120), new Vector2(560, 440));
             }
             else
             {
                 Ui.Place(listRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -110), new Vector2(640, 800));
-                Ui.Place(cardRt, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 400));
+                Ui.Place(cardRt, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 440));
             }
         }
 
-        static Text Stat(RectTransform card, string name, float y)
+        static Text Stat(RectTransform card, string name, string icon, float y, Color valueColour)
         {
-            var l = Ui.Label(card, name, 26, Ui.Dim);
-            Ui.Place(l.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(70, y), new Vector2(200, 40));
-            var v = Ui.Label(card, "0", 34, Color.white, TextAnchor.MiddleRight);
-            Ui.Place(v.rectTransform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(480, y), new Vector2(240, 40));
+            var chip = Ui.Img(card, name, Res.Rounded(16), new Color(1, 1, 1, 0.04f));
+            Ui.Place(chip.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(36, y), new Vector2(488, 50));
+            var ic = Ui.Img(chip.rectTransform, "Icon", Res.Emoji(icon), Color.white);
+            ic.preserveAspect = true;
+            Ui.Place(ic.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(16, 0), new Vector2(30, 30));
+            var l = Ui.Label(chip.rectTransform, name, 22, Ui.Green, TextAnchor.MiddleLeft, false);
+            Ui.Place(l.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(60, 0), new Vector2(200, 40));
+            var v = Ui.Label(chip.rectTransform, "0", 32, valueColour, TextAnchor.MiddleRight);
+            Ui.Place(v.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-18, 0), new Vector2(240, 44));
             return v;
         }
 
@@ -499,9 +521,9 @@ namespace FlappyCrix
             Ui.Place(list, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -40), new Vector2(640, 360));
             var v = list.gameObject.AddComponent<VerticalLayoutGroup>();
             v.spacing = 14; v.childControlHeight = false; v.childControlWidth = false; v.childForceExpandHeight = false; v.childForceExpandWidth = false;
-            var a = Ui.MenuButton(list, "RESUME", null, resume, 560, 84);
-            var b = Ui.MenuButton(list, "SETTINGS", null, settings, 560, 84);
-            var c = Ui.MenuButton(list, "MAIN MENU", "Ends this run", menu, 560, 84);
+            var a = Ui.MenuButton(list, "RESUME", null, resume, 560, 84, "25b6", Ui.Look.Primary);
+            var b = Ui.MenuButton(list, "SETTINGS", null, settings, 560, 84, "2699");
+            var c = Ui.MenuButton(list, "MAIN MENU", "Ends this run", menu, 560, 84, "1f6aa");
             Ui.Chain(new Selectable[] { a, b, c });
             FirstSelect = a;
         }
@@ -518,32 +540,40 @@ namespace FlappyCrix
         {
             FadeSpeed = 4;
             Shade(Root, 0.55f);
-            title = GlitchText.Make(Root, "WRECKED", 150, Color.white, TextAnchor.MiddleCenter);
-            Ui.Place((RectTransform)title.transform, new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 200));
-            title.Intensity = 2;
-            score = Ui.Label(Root, "0", 170, Color.white, TextAnchor.MiddleCenter);
-            Ui.Place(score.rectTransform, new Vector2(0.5f, 0.56f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800, 200));
-            badge = Ui.Label(Root, "NEW BEST!", 40, Ui.Gold, TextAnchor.MiddleCenter);
-            Ui.Place(badge.rectTransform, new Vector2(0.5f, 0.44f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800, 60));
-            best = Ui.Label(Root, "", 32, Ui.Dim, TextAnchor.MiddleCenter);
-            Ui.Place(best.rectTransform, new Vector2(0.5f, 0.38f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 50));
-            coins = Ui.Label(Root, "", 32, Ui.Gold, TextAnchor.MiddleCenter);
-            Ui.Place(coins.rectTransform, new Vector2(0.5f, 0.33f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 50));
-            xp = Ui.Label(Root, "", 26, Ui.Dim, TextAnchor.MiddleCenter, false);
-            Ui.Place(xp.rectTransform, new Vector2(0.5f, 0.285f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200, 40));
-
-            var row = Ui.Rect(Root, "Buttons");
-            Ui.Place(row, new Vector2(0.5f, 0.14f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1000, 100));
-            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 30; h.childAlignment = TextAnchor.MiddleCenter; h.childControlHeight = false; h.childControlWidth = false;
-            h.childForceExpandHeight = false; h.childForceExpandWidth = false;
-            var r = Ui.MenuButton(row, "RETRY", null, again, 420, 92);
-            var m = Ui.MenuButton(row, "MENU", null, menu, 420, 92);
-            var n1 = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = m, selectOnLeft = m };
-            var n2 = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = r, selectOnLeft = r };
+            var card = Ui.Card(Root, "Card", Ui.Red);
+            Ui.Place(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -10), new Vector2(720, 640));
+            title = GlitchText.Make(card, "GAME OVER", 80, Color.white, TextAnchor.MiddleCenter);
+            Ui.Place((RectTransform)title.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -36), new Vector2(680, 110));
+            badge = Ui.Label(card, "NEW BEST!", 30, Ui.Gold, TextAnchor.MiddleCenter);
+            Ui.Place(badge.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -144), new Vector2(600, 44));
+            score = Box(card, "SCORE", -200, -220);
+            best = Box(card, "BEST", -200, 0);
+            coins = Box(card, "COINS", -200, 220);
+            xp = Ui.Label(card, "", 24, Ui.Dim, TextAnchor.MiddleCenter, false);
+            Ui.Place(xp.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -350), new Vector2(640, 36));
+            var r = Ui.MenuButton(card, "RETRY", null, again, 600, 88, "25b6", Ui.Look.Primary);
+            Ui.Place((RectTransform)r.transform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 150), new Vector2(600, 88));
+            var m = Ui.MenuButton(card, "MAIN MENU", null, menu, 600, 80, "1f6aa");
+            Ui.Place((RectTransform)m.transform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 44), new Vector2(600, 80));
+            var n1 = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = m, selectOnUp = m };
+            var n2 = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = r, selectOnUp = r };
             r.navigation = n1; m.navigation = n2;
             retry = r;
             FirstSelect = r;
+        }
+
+        /// <summary>One of the site's three stat boxes: a small green label over a big number.</summary>
+        static Text Box(RectTransform card, string name, float y, float x)
+        {
+            var b = Ui.Img(card, name, Res.Rounded(16), new Color(0.04f, 0.04f, 0.06f, 1));
+            Ui.Place(b.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(x, y), new Vector2(200, 120));
+            var e = Ui.Img(b.rectTransform, "Edge", Res.Rounded(16, 2), new Color(1, 1, 1, 0.08f));
+            Ui.Fill(e.rectTransform);
+            var l = Ui.Label(b.rectTransform, name, 20, Ui.Green, TextAnchor.MiddleCenter, false);
+            Ui.Place(l.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(190, 30));
+            var v = Ui.Label(b.rectTransform, "0", 50, Color.white, TextAnchor.MiddleCenter);
+            Ui.Place(v.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 14), new Vector2(190, 64));
+            return v;
         }
 
         public void Set(int s, int bestScore, bool newBest, int runCoins, int levelGained, int level)
@@ -551,11 +581,10 @@ namespace FlappyCrix
             var inv = CultureInfo.InvariantCulture;
             score.text = s.ToString(inv);
             badge.gameObject.SetActive(newBest);
-            best.text = "BEST  " + bestScore.ToString(inv);
-            coins.text = runCoins > 0 ? "+" + runCoins.ToString(inv) + " COINS" : "";
+            best.text = bestScore.ToString(inv);
+            coins.text = runCoins.ToString(inv);
             xp.text = levelGained > 0 ? "LEVEL UP!  NOW LEVEL " + level : "+" + s + " XP";
-            string[] words = { "WRECKED", "GAME OVER", "CRASHED", "SPLAT", "OOF" };
-            title.SetText(newBest ? "NEW RECORD" : words[UnityEngine.Random.Range(0, words.Length)]);
+            title.SetText("GAME OVER");
             age = 0;
         }
 
@@ -586,9 +615,9 @@ namespace FlappyCrix
 
         public void Show(string text, Color colour)
         {
-            var bg = Ui.Img(root, "Toast", Res.Slant, new Color(0.04f, 0.02f, 0.07f, 0.92f));
+            var bg = Ui.Img(root, "Toast", Res.Rounded(18), new Color(0.07f, 0.07f, 0.1f, 0.97f));
             Ui.Place(bg.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -live.Count * 86), new Vector2(900, 74));
-            var edge = Ui.Img(bg.rectTransform, "Edge", Res.SlantOutline, colour);
+            var edge = Ui.Img(bg.rectTransform, "Edge", Res.Rounded(18, 3), colour);
             Ui.Fill(edge.rectTransform);
             var t = Ui.Label(bg.rectTransform, text, 30, Color.white, TextAnchor.MiddleCenter);
             Ui.Fill(t.rectTransform);

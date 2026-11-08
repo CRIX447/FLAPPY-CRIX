@@ -9,7 +9,7 @@ namespace FlappyCrix
 {
     public sealed class SlantButton : Button
     {
-        public Image Background;
+        public Image Background, Edge;
         public Color Base = Color.white;
         float on, target;
         bool disabled;
@@ -31,7 +31,8 @@ namespace FlappyCrix
                 Color c = disabled ? new Color(Base.r * 0.4f, Base.g * 0.4f, Base.b * 0.45f, Base.a * 0.6f) : Color.Lerp(Base, Color.Lerp(Base, Color.white, 0.35f), on);
                 Background.color = c;
             }
-            float s = 1 + on * 0.06f;
+            if (Edge != null) Edge.color = Color.Lerp(new Color(1, 1, 1, 0.15f), Ui.Green, disabled ? 0 : on);
+            float s = 1 + on * 0.04f;
             transform.localScale = new Vector3(s, s, 1);
         }
     }

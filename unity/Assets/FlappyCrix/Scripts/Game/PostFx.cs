@@ -12,7 +12,7 @@ namespace FlappyCrix
         public static PostFx Inst;
 
         public float Desaturate;           // 0..1, game over fades to grey
-        public float ChromaBase = 0.35f;
+        public float ChromaBase = 0f;
         float glitch, flash, chromaKick;
         Color flashColor = Color.white;
         readonly RenderTexture[] chain = new RenderTexture[8];
@@ -44,7 +44,7 @@ namespace FlappyCrix
             int levels = high ? 5 : 3;
             int w = src.width / 2, h = src.height / 2;
             var fmt = src.format;
-            m.SetFloat("_Threshold", 0.62f);
+            m.SetFloat("_Threshold", 0.8f);
             chain[0] = RenderTexture.GetTemporary(w, h, 0, fmt);
             Graphics.Blit(src, chain[0], m, 0);
             int used = 1;
@@ -58,15 +58,16 @@ namespace FlappyCrix
             for (int i = used - 2; i >= 0; i--) Graphics.Blit(chain[i + 1], chain[i], m, 2);
 
             m.SetTexture("_BloomTex", chain[0]);
-            m.SetFloat("_Bloom", high ? 0.9f : 0.6f);
-            m.SetFloat("_Chroma", ChromaBase + chromaKick * 3);
-            m.SetFloat("_Vignette", 0.55f);
-            m.SetFloat("_Grain", high ? 0.045f : 0);
-            m.SetFloat("_Scan", high ? 0.035f : 0);
+            // the site's look: clean, just a gentle glow on bright bits and a light vignette
+            m.SetFloat("_Bloom", high ? 0.35f : 0.22f);
+            m.SetFloat("_Chroma", ChromaBase);
+            m.SetFloat("_Vignette", 0.25f);
+            m.SetFloat("_Grain", 0);
+            m.SetFloat("_Scan", 0);
             m.SetFloat("_Seed", Time.unscaledTime % 97f);
             m.SetFloat("_Desat", Desaturate);
             m.SetFloat("_Flash", flash * 0.55f);
-            m.SetFloat("_Glitch", glitch);
+            m.SetFloat("_Glitch", 0);
             m.SetColor("_FlashColor", flashColor);
             Graphics.Blit(src, dst, m, 3);
             for (int i = 0; i < used; i++) { RenderTexture.ReleaseTemporary(chain[i]); chain[i] = null; }

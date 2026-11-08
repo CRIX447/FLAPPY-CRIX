@@ -51,6 +51,12 @@ namespace FlappyCrix
         readonly List<SpriteRenderer> grounds = new List<SpriteRenderer>();
         float groundWidth;
         readonly List<Transform> stars = new List<Transform>();
+        readonly List<Transform> clouds = new List<Transform>();
+        readonly List<Vector2> cloudSeed = new List<Vector2>();
+        readonly List<SpriteRenderer> bushes = new List<SpriteRenderer>();
+        float bushWidth;
+        /// <summary>The site draws no trail unless one is equipped.</summary>
+        bool HasTrail;
         LineRenderer trail;
         Sprite pipeBody, pipeCap;
         readonly List<PipeView> pipes = new List<PipeView>();
@@ -77,8 +83,8 @@ namespace FlappyCrix
             root = new GameObject("World").transform;
             root.SetParent(transform, false);
 
-            // palette: the season's, or the edgy night look
-            Color skyTop, skyLow, cityC, groundC, stripe;
+            // palette: the season's, or the website's own night look
+            Color skyTop, skyLow, cityC, groundC, stripe, bushC, groundLip;
             Color[] pipeStops;
             if (season != null)
             {
@@ -86,20 +92,24 @@ namespace FlappyCrix
                 groundC = Res.C(season.Ground); stripe = Res.C(season.Stripe); accent = Res.C(season.Accent);
                 pipeStops = new Color[season.Pipe.Length];
                 for (int i = 0; i < pipeStops.Length; i++) pipeStops[i] = Res.C(season.Pipe[i]);
-                neon = Color.Lerp(pipeStops[2], Color.white, 0.25f);
+                neon = new Color(0, 0, 0, 0);
+                bushC = Color.Lerp(cityC, pipeStops[1], 0.5f);
+                groundLip = Color.Lerp(groundC, Color.white, 0.18f);
             }
             else
             {
-                skyTop = Res.Hex("#05040B"); skyLow = Res.Hex("#2A0D1E"); cityC = Res.Hex("#160D22");
-                groundC = Res.Hex("#141019"); stripe = Res.Hex("#FF4655"); accent = Res.Hex("#FF4655");
-                pipeStops = new[] { Res.Hex("#06130E"), Res.Hex("#0B3B27"), Res.Hex("#13734C"), Res.Hex("#0B3B27"), Res.Hex("#050F0B") };
-                neon = Res.Hex("#2BFFA3");
+                skyTop = Res.Hex("#12203A"); skyLow = Res.Hex("#1B3352"); cityC = new Color32(35, 60, 95, 255);
+                groundC = Res.Hex("#2A2A22"); stripe = Res.Hex("#3A3A2E"); accent = Res.Hex("#FF4655");
+                pipeStops = new[] { Res.Hex("#0B8F56"), Res.Hex("#00CC7A"), Res.Hex("#4DE8A8"), Res.Hex("#00CC7A"), Res.Hex("#076B41") };
+                neon = new Color(0, 0, 0, 0);
+                bushC = Res.Hex("#1E4A2E");
+                groundLip = Res.Hex("#3D3D31");
             }
 
             sky = NewSprite("Sky", Res.MakeSprite(Res.VGradient(skyTop, skyLow), 100, "sky"), -100);
             // stars
             var rng = new System.Random(7);
-            for (int i = 0; i < 70; i++)
+            for (int i = 0; i < (season != null ? 70 : 0); i++)
             {
                 var s = NewSprite("Star", Res.Soft, -95);
                 float k = 0.03f + (float)rng.NextDouble() * 0.05f;
@@ -112,25 +122,46 @@ namespace FlappyCrix
             moonGlow.color = season != null ? Res.C(season.Moon) * 0.5f : new Color(1f, 0.25f, 0.3f, 0.5f);
             moon = NewSprite("Moon", Res.Soft, -93);
             moon.color = season != null ? Res.C(season.Moon) : Res.Hex("#FFD3C9");
+            moon.enabled = moonGlow.enabled = season != null;
+
+            // dim clouds drifting slowly
+            var cloudSpr = Res.MakeSprite(Res.Cloud(), 100, "cloud");
+            var crng = new System.Random(11);
+            for (int i = 0; i < 6; i++)
+            {
+                var c = NewSprite("Cloud", cloudSpr, -94);
+                c.color = new Color(1, 1, 1, 0.05f + (float)crng.NextDouble() * 0.05f);
+                c.transform.localScale = Vector3.one * (0.9f + (float)crng.NextDouble() * 1.2f);
+                clouds.Add(c.transform);
+                cloudSeed.Add(new Vector2((float)crng.NextDouble(), 0.45f + (float)crng.NextDouble() * 0.5f));
+            }
 
             // three city layers, far to near
             Color[] layerC = { Color.Lerp(cityC, skyLow, 0.55f), Color.Lerp(cityC, skyLow, 0.25f), cityC };
-            Color win = season != null ? new Color(1f, 0.84f, 0.47f) : Res.Hex("#FF6B35");
+            Color win = season != null ? new Color(1f, 0.84f, 0.47f) : new Color(0.55f, 0.68f, 0.85f);
             for (int l = 0; l < 3; l++)
             {
-                var tex = Res.Skyline(512, 256, layerC[l], Color.Lerp(layerC[l], win, 0.55f + l * 0.15f), 0.18f + l * 0.06f, 11 + l * 31, 0.25f + l * 0.08f, 0.6f + l * 0.12f);
+                float winMix = season != null ? 0.55f + l * 0.15f : 0.12f + l * 0.06f;   // the site's windows are faint
+                var tex = Res.Skyline(512, 256, layerC[l], Color.Lerp(layerC[l], win, winMix), 0.18f + l * 0.06f, 11 + l * 31, 0.25f + l * 0.08f, 0.6f + l * 0.12f);
                 var spr = Sprite.Create(tex, new Rect(0, 0, 512, 256), new Vector2(0, 0), 100f / (1.6f + l * 0.4f));   // bottom-left pivot
                 cityWidth[l] = spr.bounds.size.x;
                 for (int k = 0; k < 4; k++) city[l].Add(NewSprite("City" + l, spr, -90 + l * 2));
             }
 
+            // bushes in front of the city
+            var btex = Res.Bushes(bushC);
+            var bspr = Sprite.Create(btex, new Rect(0, 0, 512, 64), new Vector2(0, 0), 100f / 1.4f);
+            bushWidth = bspr.bounds.size.x;
+            for (int k = 0; k < 4; k++) bushes.Add(NewSprite("Bushes", bspr, -84));
+
             // ground
-            var gtex = Res.Ground(groundC, stripe, neon);
+            var gtex = Res.Ground(groundC, stripe, groundLip);
             var gspr = Sprite.Create(gtex, new Rect(0, 0, 128, 128), new Vector2(0, 1), 128f / (NativeSim.GroundH * U * 1.3f));
             groundWidth = gspr.bounds.size.x;
             for (int k = 0; k < 26; k++) grounds.Add(NewSprite("Ground", gspr, 20));
             groundTop = NewSprite("GroundGlow", Res.White, 21, true);
-            groundTop.color = new Color(neon.r, neon.g, neon.b, 0.35f);
+            groundTop.color = new Color(0, 0, 0, 0);
+            groundTop.enabled = false;
 
             // pipes
             var ptex = Res.PipeBody(pipeStops, neon);
@@ -139,7 +170,7 @@ namespace FlappyCrix
 
             // bird
             birdGlow = NewSprite("BirdGlow", Res.Glow, 49, true);
-            birdGlow.color = new Color(accent.r, accent.g, accent.b, 0.35f);
+            birdGlow.color = new Color(accent.r, accent.g, accent.b, 0f);
             bird = NewSprite("Bird", Res.Get("bird"), 50);
             if (bird.sprite != null) bird.transform.localScale = Vector3.one * (BirdDraw * U / bird.sprite.bounds.size.y);
 
@@ -381,6 +412,17 @@ namespace FlappyCrix
                     city[l][k].transform.localPosition = new Vector3(left + off + k * w - 0.01f, groundY - 0.02f, 0);
             }
 
+            // clouds drift very slowly, wrapping round
+            float span = right - left + 6f, top = (NativeSim.H - ViewTop) * U;
+            for (int i = 0; i < clouds.Count; i++)
+            {
+                float cx = left - 3f + Mathf.Repeat(cloudSeed[i].x * span - scroll * 0.03f * U - t * 0.05f, span);
+                clouds[i].localPosition = new Vector3(cx, Mathf.Lerp(groundY, top, cloudSeed[i].y), 0);
+            }
+            float bOff = -((scroll * 0.6f * U) % bushWidth);
+            for (int k = 0; k < bushes.Count; k++)
+                bushes[k].transform.localPosition = new Vector3(left + bOff + k * bushWidth - 0.01f, groundY - 0.02f, 0);
+
             // ground (moves with the pipes)
             float gOff = -((scroll * U) % groundWidth);
             for (int k = 0; k < grounds.Count; k++)
@@ -410,7 +452,7 @@ namespace FlappyCrix
                 v.BotBody.transform.localScale = new Vector3(1, botLen / pipeBody.bounds.size.y, 1);
                 v.BotCap.transform.localPosition = new Vector3(NativeSim.PipeWidth * U / 2, botStart - 0.1f, 0);
                 float glow = 0.18f + 0.08f * Mathf.Sin(t * 3 + p.X * 0.02f);
-                v.TopGlow.color = new Color(neon.r, neon.g, neon.b, glow);
+                v.TopGlow.color = new Color(neon.r, neon.g, neon.b, neon.a > 0 ? glow : 0);
                 v.BotGlow.color = v.TopGlow.color;
                 v.TopGlow.transform.localPosition = new Vector3(NativeSim.PipeWidth * U / 2, topEnd + 0.1f, 0);
                 v.BotGlow.transform.localPosition = new Vector3(NativeSim.PipeWidth * U / 2, botStart - 0.1f, 0);
@@ -437,14 +479,14 @@ namespace FlappyCrix
             bird.enabled = Sim.Screen != "dead";
             birdGlow.transform.localPosition = bp;
             birdGlow.transform.localScale = Vector3.one * (0.9f + 0.1f * Mathf.Sin(t * 6));
-            birdGlow.enabled = bird.enabled && Settings.Effects != Settings.Fx.Off;
+            birdGlow.enabled = false;
 
             Dress(t);
             DrawRemotes();
 
             // trail
             int n = Sim.Trail.Count / 2;
-            trail.enabled = n > 1 && bird.enabled;
+            trail.enabled = n > 1 && bird.enabled && HasTrail;
             if (trail.enabled)
             {
                 trail.positionCount = n;

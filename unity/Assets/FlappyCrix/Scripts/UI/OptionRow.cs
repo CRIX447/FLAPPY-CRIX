@@ -10,7 +10,7 @@ namespace FlappyCrix
     /// <summary>A settings row: left / right (keys, gamepad, or the arrows) changes the value.</summary>
     public sealed class OptionRow : Selectable, IPointerClickHandler, ISubmitHandler
     {
-        public Image Background;
+        public Image Background, Edge;
         public Text Label, Value, Left, Right;
         public Func<string> ValueOf;
         public Action<int> Change;
@@ -58,8 +58,8 @@ namespace FlappyCrix
         void Update()
         {
             on = Mathf.MoveTowards(on, target, Time.unscaledDeltaTime * 7);
-            if (Background != null)
-                Background.color = Color.Lerp(new Color(1, 1, 1, 0.05f), new Color(Ui.Red.r, Ui.Red.g, Ui.Red.b, 0.55f), on);
+            if (Edge != null) Edge.color = Color.Lerp(new Color(1, 1, 1, 0.12f), Ui.Green, on);
+            transform.localScale = Vector3.one * (1 + on * 0.01f);
         }
     }
 }

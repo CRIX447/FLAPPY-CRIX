@@ -13,9 +13,11 @@ namespace FlappyCrix
     {
         public static readonly Color Red = new Color32(0xFF, 0x46, 0x55, 255);
         public static readonly Color Orange = new Color32(0xFF, 0x6B, 0x35, 255);
-        public static readonly Color Gold = new Color32(0xFF, 0xD5, 0x4A, 255);
-        public static readonly Color Green = new Color32(0x2B, 0xFF, 0xA3, 255);
-        public static readonly Color Ink = new Color32(0x07, 0x06, 0x0C, 255);
+        public static readonly Color Gold = new Color32(0xFF, 0xD7, 0x00, 255);
+        public static readonly Color Green = new Color32(0x00, 0xCC, 0x7A, 255);
+        public static readonly Color Ink = new Color32(0x0A, 0x0A, 0x0F, 255);
+        public static readonly Color CardBg = new Color(12 / 255f, 12 / 255f, 20 / 255f, 0.94f);
+        public static readonly Color Lip = new Color(150 / 255f, 20 / 255f, 35 / 255f, 0.8f);
         public static readonly Color Dim = new Color32(0xA6, 0xA6, 0xB2, 255);
 
         /// <summary>The interface is drawn by the game camera, so the screen effects (glow, glitch) touch it too.</summary>
@@ -95,32 +97,63 @@ namespace FlappyCrix
         }
 
         /// <summary>A big slanted menu button. sub = small text under the label (or null).</summary>
-        public static MenuButton MenuButton(Transform parent, string label, string sub, Action onClick, float width = 560, float height = 92)
+        public enum Look { Dark, Primary, Online, Green }
+
+        /// <summary>
+        /// A big rounded menu button in the website's style: PLAY is the red-to-orange pill, the rest are
+        /// dark pills; the one you're on lifts and gets the site's green edge. icon = an emoji code.
+        /// </summary>
+        public static MenuButton MenuButton(Transform parent, string label, string sub, Action onClick, float width = 560, float height = 92,
+                                            string icon = null, Look look = Look.Dark)
         {
-            var r = Rect(parent, "Button " + label);
-            r.sizeDelta = new Vector2(width, height);
-            var le = r.gameObject.AddComponent<LayoutElement>();
+            int r = Mathf.Min(48, (int)(height / 2));
+            var root = Rect(parent, "Button " + label);
+            root.sizeDelta = new Vector2(width, height);
+            var le = root.gameObject.AddComponent<LayoutElement>();
             le.preferredWidth = width; le.preferredHeight = height;
-            var bg = r.gameObject.AddComponent<Image>();
-            bg.sprite = Res.Slant; bg.type = Image.Type.Sliced; bg.color = new Color(1, 1, 1, 0.06f);
-            var b = r.gameObject.AddComponent<MenuButton>();
-            b.targetGraphic = bg;
+            var hit = root.gameObject.AddComponent<Image>();
+            hit.color = new Color(0, 0, 0, 0);
+            var b = root.gameObject.AddComponent<MenuButton>();
+            b.targetGraphic = hit;
             b.transition = Selectable.Transition.None;
+
+            var body = Rect(root, "Body");
+            Fill(body);
+            b.Body = body;
+            var lip = Img(body, "Lip", Res.Rounded(r), look == Look.Primary ? new Color(180 / 255f, 30 / 255f, 50 / 255f, 0.85f) : look == Look.Green ? new Color(0, 0.4f, 0.25f, 0.9f) : new Color(0, 0, 0, 0.55f));
+            Fill(lip.rectTransform, 0, -5, 0, 5);
+            Image bg;
+            if (look == Look.Primary) bg = Img(body, "Fill", Res.Rounded(r, 0, Red, Orange), Color.white);
+            else if (look == Look.Green) bg = Img(body, "Fill", Res.Rounded(r, 0, new Color32(0x0E, 0x8F, 0x62, 255), Green), Color.white);
+            else if (look == Look.Online) bg = Img(body, "Fill", Res.Rounded(r), new Color(0.2f, 0.05f, 0.07f, 0.96f));
+            else bg = Img(body, "Fill", Res.Rounded(r), new Color(0.11f, 0.11f, 0.15f, 0.96f));
+            Fill(bg.rectTransform);
             b.Background = bg;
-            var bar = Img(r, "Bar", Res.White, Red);
-            Place(bar.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(18, 0), new Vector2(8, height * 0.62f));
-            b.Bar = bar;
-            var holder = Rect(r, "Content");
+            var edge = Img(body, "Edge", Res.Rounded(r, 3), look == Look.Online ? Orange : new Color(1, 1, 1, 0.16f));
+            Fill(edge.rectTransform);
+            b.Edge = edge; b.EdgeColour = edge.color;
+            var holder = Rect(body, "Content");
             Fill(holder);
             b.Content = holder;
-            var t = Label(holder, label, sub != null ? 44 : 48, Color.white, sub != null ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft);
-            Fill(t.rectTransform, 48, sub != null ? 0 : 0, 20, sub != null ? 10 : 0);
-            b.Label = t;
+            float textLeft = 44;
+            if (icon != null && Res.Emoji(icon) != null)
+            {
+                var ic = Img(holder, "Icon", Res.Emoji(icon), Color.white);
+                ic.preserveAspect = true;
+                float s = Mathf.Min(height * 0.5f, 50);
+                Place(ic.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(s, s));
+                textLeft = 34 + s + 18;
+            }
+            var t = Label(holder, label, sub != null ? 40 : (height >= 80 ? 46 : 34), look == Look.Online ? Orange : Color.white,
+                          sub != null ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft);
+            Fill(t.rectTransform, textLeft, 0, 20, sub != null ? 12 : 0);
+            b.Label = t; b.LabelColour = t.color;
             if (sub != null)
             {
-                var s = Label(holder, sub, 20, Dim, TextAnchor.LowerLeft, false);
-                Fill(s.rectTransform, 50, 12, 20, 0);
-                b.Sub = s;
+                var sl = Label(holder, sub, 19, look == Look.Primary ? new Color(1, 1, 1, 0.85f) : Dim, TextAnchor.LowerLeft, false);
+                Fill(sl.rectTransform, textLeft + 2, 14, 20, 0);
+                sl.horizontalOverflow = HorizontalWrapMode.Wrap;
+                b.Sub = sl;
             }
             b.onClick.AddListener(() => { if (onClick != null) onClick(); });
             return b;
@@ -133,18 +166,21 @@ namespace FlappyCrix
             var le = r.gameObject.AddComponent<LayoutElement>();
             le.preferredWidth = width; le.preferredHeight = 74;
             var bg = r.gameObject.AddComponent<Image>();
-            bg.sprite = Res.Slant; bg.type = Image.Type.Sliced; bg.color = new Color(1, 1, 1, 0.05f);
+            bg.sprite = Res.Rounded(20); bg.type = Image.Type.Sliced; bg.color = CardBg;
+            var edge = Img(r, "Edge", Res.Rounded(20, 2), new Color(1, 1, 1, 0.12f));
+            Fill(edge.rectTransform);
             var o = r.gameObject.AddComponent<OptionRow>();
+            o.Edge = edge;
             o.targetGraphic = bg; o.transition = Selectable.Transition.None;
             o.Background = bg; o.ValueOf = value; o.Change = change;
             var t = Label(r, label, 32, Color.white);
             Fill(t.rectTransform, 44, 0, 0, 0);
             o.Label = t;
-            var left = Label(r, "<", 36, Red, TextAnchor.MiddleCenter);
+            var left = Label(r, "<", 36, Orange, TextAnchor.MiddleCenter);
             Place(left.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-370, 0), new Vector2(60, 60));
             var val = Label(r, "", 32, Gold, TextAnchor.MiddleCenter);
             Place(val.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, 0), new Vector2(280, 60));
-            var right = Label(r, ">", 36, Red, TextAnchor.MiddleCenter);
+            var right = Label(r, ">", 36, Orange, TextAnchor.MiddleCenter);
             Place(right.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-30, 0), new Vector2(60, 60));
             o.Value = val; o.Left = left; o.Right = right;
             o.Refresh();
@@ -204,12 +240,19 @@ namespace FlappyCrix
             var r = Rect(parent, "Button " + label);
             r.sizeDelta = new Vector2(w, h);
             var le = r.gameObject.AddComponent<LayoutElement>(); le.preferredWidth = w; le.preferredHeight = h;
+            int rad = Mathf.Min(40, (int)(h / 2));
+            var lip = Img(r, "Lip", Res.Rounded(rad), new Color(0, 0, 0, 0.5f));
+            Fill(lip.rectTransform, 0, -4, 0, 4);
             var img = r.gameObject.AddComponent<Image>();
-            img.sprite = Res.Slant; img.type = Image.Type.Sliced; img.color = colour;
+            bool primary = colour == Red;
+            img.sprite = primary ? Res.Rounded(rad, 0, Red, Orange) : Res.Rounded(rad); img.type = Image.Type.Sliced;
+            img.color = primary ? Color.white : colour;
+            var edge = Img(r, "Edge", Res.Rounded(rad, 2), new Color(1, 1, 1, 0.15f));
+            Fill(edge.rectTransform);
             var b = r.gameObject.AddComponent<SlantButton>();
             b.targetGraphic = img;
             b.transition = Selectable.Transition.None;
-            b.Background = img; b.Base = colour;
+            b.Background = img; b.Base = img.color; b.Edge = edge;
             var t = Label(r, label, size, Color.white, TextAnchor.MiddleCenter);
             Fill(t.rectTransform);
             b.onClick.AddListener(() => { Sfx.Play("click", 0.6f); if (onClick != null) onClick(); });
@@ -223,12 +266,17 @@ namespace FlappyCrix
         }
 
         /// <summary>A card: a dark slanted panel with a bright edge.</summary>
-        public static RectTransform Card(Transform parent, string name, Color edge, float alpha = 0.85f)
+        /// <summary>A card in the website's style: dark, rounded, a coloured edge and a darker lip under it.</summary>
+        public static RectTransform Card(Transform parent, string name, Color edge, float alpha = 0.94f)
         {
-            var bg = Img(parent, name, Res.Slant, new Color(0.06f, 0.035f, 0.1f, alpha));
-            var e = Img(bg.rectTransform, "Edge", Res.SlantOutline, edge);
+            var holder = Rect(parent, name);
+            var lip = Img(holder, "Lip", Res.Rounded(22), new Color(edge.r * 0.55f, edge.g * 0.55f, edge.b * 0.55f, Mathf.Min(1, edge.a + 0.2f)));
+            Fill(lip.rectTransform, 0, -5, 0, 5);
+            var bg = Img(holder, "Bg", Res.Rounded(22), new Color(CardBg.r, CardBg.g, CardBg.b, alpha));
+            Fill(bg.rectTransform);
+            var e = Img(holder, "Edge", Res.Rounded(22, 3), edge);
             Fill(e.rectTransform);
-            return bg.rectTransform;
+            return holder;
         }
 
         public static InputField Input(Transform parent, string placeholder, int max, float w, float h)
@@ -236,7 +284,9 @@ namespace FlappyCrix
             var r = Rect(parent, "Input");
             r.sizeDelta = new Vector2(w, h);
             var le = r.gameObject.AddComponent<LayoutElement>(); le.preferredWidth = w; le.preferredHeight = h;
-            var bg = r.gameObject.AddComponent<Image>(); bg.sprite = Res.White; bg.color = new Color(0, 0, 0, 0.6f);
+            var bg = r.gameObject.AddComponent<Image>(); bg.sprite = Res.Rounded(20); bg.type = Image.Type.Sliced; bg.color = CardBg;
+            var ie = Img(r, "Edge", Res.Rounded(20, 2), Orange);
+            Fill(ie.rectTransform);
             var f = r.gameObject.AddComponent<InputField>();
             var text = Label(r, "", 40, Gold, TextAnchor.MiddleCenter, false);
             Fill(text.rectTransform, 12, 0, 12, 0);
@@ -250,9 +300,9 @@ namespace FlappyCrix
 
         public static Image Bar(Transform parent, float value, Color colour, float w, float h)
         {
-            var back = Img(parent, "Bar", Res.White, new Color(1, 1, 1, 0.1f));
+            var back = Img(parent, "Bar", Res.Rounded(6), new Color(1, 1, 1, 0.1f));
             back.rectTransform.sizeDelta = new Vector2(w, h);
-            var fill = Img(back.rectTransform, "Fill", Res.White, colour);
+            var fill = Img(back.rectTransform, "Fill", Res.Rounded(6), colour);
             fill.rectTransform.anchorMin = Vector2.zero; fill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(value), 1);
             fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
             return back;
