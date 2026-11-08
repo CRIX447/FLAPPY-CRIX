@@ -44,6 +44,38 @@ namespace FlappyCrix
             return c;
         }
 
+        // ------------------------------------------------------------------ screen shapes
+        // Each kind of device gets its own layout:
+        //   Desktop  - wide screens (PC, laptop, wide tablet): three columns like the website
+        //   Compact  - phones held sideways and squarer screens: one big two-half panel, bigger buttons
+        //   Portrait - phones and tablets held upright: one tall column like the website on a phone
+        public enum Form { Desktop, Compact, Portrait }
+        public static Form CurrentForm = Form.Desktop;
+        public static int FormVersion = 1;
+        public static Vector2 CanvasSize = new Vector2(1920, 1080);
+
+        /// <summary>Called every frame by GameRoot with the canvas; panels re-lay themselves out when this changes.</summary>
+        public static void UpdateForm(RectTransform canvas)
+        {
+            var size = canvas.rect.size;
+            if (size.x <= 0 || size.y <= 0) return;
+            CanvasSize = size;
+            Form f;
+            if (size.y > size.x) f = Form.Portrait;
+            else if (IsPhone() || size.x < 1700) f = Form.Compact;
+            else f = Form.Desktop;
+            if (f != CurrentForm) { CurrentForm = f; FormVersion++; }
+        }
+
+        /// <summary>A phone (not a tablet): a mobile screen whose short side is under about 4 inches.</summary>
+        public static bool IsPhone()
+        {
+            if (!Application.isMobilePlatform) return false;
+            float dpi = Screen.dpi;
+            if (dpi <= 0) return true;
+            return Mathf.Min(Screen.width, Screen.height) / dpi < 4f;
+        }
+
         public static RectTransform Rect(Transform parent, string name)
         {
             var go = new GameObject(name, typeof(RectTransform));
@@ -56,6 +88,71 @@ namespace FlappyCrix
             r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one;
             r.offsetMin = new Vector2(l, b); r.offsetMax = new Vector2(-rr, -t);
             return r;
+        }
+
+        /// <summary>Place from the parent's top-left corner: x right, y down (like a web page).</summary>
+        public static RectTransform At(RectTransform r, float x, float y, float w, float h)
+        {
+            r.anchorMin = r.anchorMax = new Vector2(0, 1); r.pivot = new Vector2(0, 1);
+            r.anchoredPosition = new Vector2(x, -y); r.sizeDelta = new Vector2(w, h);
+            return r;
+        }
+
+        /// <summary>A rounded box: background, optional edge, optional darker lip underneath (the site's "3D" buttons and cards).</summary>
+        public static RectTransform Box(Transform parent, string name, Color bg, Color edge, int radius = 18, int edgeWidth = 2, float lip = 0, Color lipColour = default(Color))
+        {
+            var r = Rect(parent, name);
+            if (lip > 0)
+            {
+                var l = Img(r, "Lip", Res.Rounded(radius), lipColour);
+                Fill(l.rectTransform, 0, -lip, 0, lip);
+            }
+            var b = Img(r, "Bg", Res.Rounded(radius), bg);
+            Fill(b.rectTransform);
+            if (edge.a > 0)
+            {
+                var e = Img(r, "Edge", Res.Rounded(radius, edgeWidth), edge);
+                Fill(e.rectTransform);
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// A pill button like the site's: a fill (solid or a left-to-right gradient), a darker lip under it,
+        /// an edge, and an emoji + label centred. Goes a bit brighter and gets the green edge when it's the one you're on.
+        /// </summary>
+        public static SlantButton Pill(Transform parent, string label, string icon, Action onClick, Color left, Color right,
+                                       Color edge, Color text, int fontSize, Color lipColour, int radius = 40)
+        {
+            var root = Rect(parent, "Pill " + label);
+            var hit = root.gameObject.AddComponent<Image>();
+            hit.color = new Color(0, 0, 0, 0);
+            var lip = Img(root, "Lip", Res.Rounded(radius), lipColour);
+            Fill(lip.rectTransform, 0, -6, 0, 6);
+            var fill = Img(root, "Fill", left == right ? Res.Rounded(radius) : Res.Rounded(radius, 0, left, right), left == right ? left : Color.white);
+            Fill(fill.rectTransform);
+            var e = Img(root, "Edge", Res.Rounded(radius, 2), edge);
+            Fill(e.rectTransform);
+            var b = root.gameObject.AddComponent<SlantButton>();
+            b.targetGraphic = hit; b.transition = Selectable.Transition.None;
+            b.Background = fill; b.Base = fill.color; b.Edge = e; b.EdgeBase = edge;
+            var row = Rect(root, "Content");
+            Fill(row, 16, 0, 16, 0);
+            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.childAlignment = TextAnchor.MiddleCenter; h.spacing = Mathf.Max(8, fontSize * 0.35f);
+            h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
+            if (icon != null && Res.Emoji(icon) != null)
+            {
+                var ic = Img(row, "Icon", Res.Emoji(icon), Color.white);
+                ic.preserveAspect = true;
+                var le = ic.gameObject.AddComponent<LayoutElement>();
+                le.preferredWidth = le.preferredHeight = fontSize * 1.1f;
+                b.Icon = ic;
+            }
+            var t = Label(row, label, fontSize, text, TextAnchor.MiddleCenter);
+            b.Text = t;
+            b.onClick.AddListener(() => { Sfx.Play("click", 0.6f); if (onClick != null) onClick(); });
+            return b;
         }
 
         /// <summary>Place: anchor (0..1), pivot, position, size.</summary>
@@ -85,7 +182,7 @@ namespace FlappyCrix
             if (shadow)
             {
                 var s = r.gameObject.AddComponent<Shadow>();
-                s.effectColor = new Color(0, 0, 0, 0.75f); s.effectDistance = new Vector2(3, -3);
+                s.effectColor = new Color(0, 0, 0, 0.5f); s.effectDistance = new Vector2(2, -2);
             }
             return t;
         }

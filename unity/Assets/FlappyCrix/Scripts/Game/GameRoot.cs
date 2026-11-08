@@ -158,7 +158,8 @@ namespace FlappyCrix
             menu = new MenuScreen(root, () => progress.Save, StartRun, OpenOnline, () => Open(shop), () => Open(daily), () => Open(awards),
                                   () => OpenAccount(menu), () => OpenSettings(menu), () => Open(credits), Quit);
             menu.DailyBadge = () => progress.DailyReady || progress.CalendarReady;
-            menu.AccountLine = () => online == null ? "Offline" : online.SignedIn ? "Signed in: " + online.PlayerName : online.PlayerName + "  ·  link your account";
+            menu.AccountLine = () => online == null ? "Guest" : online.PlayerName;
+            menu.SignedIn = () => online != null && online.SignedIn;
             settings = new SettingsScreen(root);
             settings.Closed = () => Back(settings);
             credits = new CreditsScreen(root, Version);
@@ -431,6 +432,7 @@ namespace FlappyCrix
             progress.Flush();
             if (online != null) online.CloudSaveNow(false);
             gameOver.Set(score, progress.Save.Best, newBest, runCoins, 0, progress.Save.Level);
+            menu.LastScore = score;
             if (newBest && score > 0) Sfx.Play("victory", 0.7f);
             StartCoroutine(ShowGameOver());
         }
@@ -495,6 +497,7 @@ namespace FlappyCrix
             bool portrait = Screen.height > Screen.width;
             scaler.referenceResolution = portrait ? new Vector2(1080, 1920) : new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = portrait ? 0 : 1;
+            Ui.UpdateForm((RectTransform)canvas.transform);
 
             if (Settings.IsDesktop && (Inputs.ToggleFullscreen() || ((Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && Input.GetKeyDown(KeyCode.Return))))
                 Settings.ToggleFullscreen();

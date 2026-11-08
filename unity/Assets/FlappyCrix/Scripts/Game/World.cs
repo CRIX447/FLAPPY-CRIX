@@ -76,7 +76,8 @@ namespace FlappyCrix
             Cam = cam;
             Season = season;
             Sim = new NativeSim();
-            Sim.Sound += (n, v) => Sfx.Play(n, v);
+            // the bird flying behind the menus is silent; sounds only play in a real run
+            Sim.Sound += (n, v) => { if (!Attract) Sfx.Play(n, v); };
             Sim.Scored += s => { if (!Attract) { punch = 1; if (Scored != null) Scored(s); } };
             Sim.Died += s => OnDied(s);
             Sim.CoinsGained += n => { if (!Attract && CoinsGained != null) CoinsGained(n); };

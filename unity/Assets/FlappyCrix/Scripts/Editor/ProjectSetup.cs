@@ -19,7 +19,7 @@ namespace FlappyCrix.EditorTools
     [InitializeOnLoad]
     public static class ProjectSetup
     {
-        const int SetupVersion = 2;
+        const int SetupVersion = 3;
         const string ScenePath = "Assets/FlappyCrix/Scenes/Main.unity";
         const string IconPath = "Assets/FlappyCrix/Resources/FlappyCrix/Images/icon.png";
         public const string AppId = "com.crixstudios.flappycrix";
