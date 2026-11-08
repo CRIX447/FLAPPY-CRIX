@@ -32,7 +32,6 @@ namespace FlappyCrix
             on = Mathf.MoveTowards(on, target, Time.unscaledDeltaTime * 8);
             float k = Mathf.SmoothStep(0, 1, on);
             if (Body != null) Body.anchoredPosition = new Vector2(0, k * 3);
-            if (Content != null) Content.anchoredPosition = new Vector2(k * 14, 0);
             if (Edge != null) Edge.color = Color.Lerp(EdgeColour, Ui.Green, k);
             if (Label != null) Label.color = Locked ? Ui.Dim : LabelColour;
         }

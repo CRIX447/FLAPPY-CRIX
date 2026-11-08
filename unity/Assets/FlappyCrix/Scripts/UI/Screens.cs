@@ -2,7 +2,7 @@
 //   Splash   - the CRIX STUDIOS boot screen (instead of Unity's)
 //   Loading  - progress bar, what's loading, tips
 //   Title    - giant glitchy logo over the live game, PRESS ANY BUTTON
-//   Menu     - big slanted buttons on the left, your stats on the right, the game behind
+//   Menu     - in MenuScreen.cs
 //   Settings - display (fullscreen / windowed / resolution), frame rate, effects, sound
 //   Credits, Hud, Pause, GameOver
 // Part of Flappy Crix (Unity) - CRIX STUDIOS. Made with AI (Claude by Anthropic).
@@ -23,6 +23,7 @@ namespace FlappyCrix
         public CanvasGroup Group;
         public bool Visible { get; private set; }
         float alpha, target;
+        int laidOut;
         public float FadeSpeed = 6;
         protected Selectable FirstSelect;
 
@@ -60,8 +61,12 @@ namespace FlappyCrix
             alpha = Mathf.MoveTowards(alpha, target, dt * FadeSpeed);
             Group.alpha = alpha;
             if (alpha <= 0 && !Visible) { Root.gameObject.SetActive(false); return; }
+            if (laidOut != Ui.FormVersion) { laidOut = Ui.FormVersion; Layout(Ui.CurrentForm); }
             Tick(dt);
         }
+
+        /// <summary>Arrange the screen for this kind of device (desktop, phone sideways, upright).</summary>
+        protected virtual void Layout(Ui.Form form) { }
 
         /// <summary>The website's background: near black (#0A0A0F) with its faint red grid.</summary>
         protected static Image Shade(Transform parent, float a)
@@ -202,147 +207,19 @@ namespace FlappyCrix
             Ui.Place(v.rectTransform, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-50, 36), new Vector2(400, 40));
         }
 
+        protected override void Layout(Ui.Form form)
+        {
+            bool tall = form == Ui.Form.Portrait;
+            logo.Main.fontSize = tall ? 128 : 190;
+            ((RectTransform)logo.transform).sizeDelta = new Vector2(tall ? 1040 : 2000, tall ? 180 : 260);
+        }
+
         public override void Tick(float dt)
         {
             float t = Time.unscaledTime;
             var c = press.color; c.a = 0.35f + 0.65f * Mathf.Abs(Mathf.Sin(t * 2.2f)); press.color = c;
             float s = 1 + Mathf.Sin(t * 1.3f) * 0.012f;
             logo.transform.localScale = new Vector3(s, s, 1);
-        }
-    }
-
-    // ---------------------------------------------------------------------- main menu
-
-    public sealed class MenuScreen : Panel
-    {
-        readonly Text level, best, coins, games, xpText, welcome;
-        readonly Image xpFill;
-        readonly Func<SaveData> saveOf;
-        SaveData save => saveOf();
-        readonly MenuButton dailyButton, accountButton;
-        readonly RectTransform cardRt, listRt;
-        public Func<bool> DailyBadge = () => false;
-        public Func<string> AccountLine = () => "Link your crixgamingvr.com account";
-
-        public MenuScreen(Transform canvas, Func<SaveData> saveOf, Action play, Action online, Action shop, Action daily, Action awards, Action account,
-                          Action settings, Action credits, Action quit) : base(canvas, "Menu")
-        {
-            this.saveOf = saveOf;
-            // a dark sweep from the left so the buttons read over the game
-            var sweep = Ui.Img(Root, "Sweep", Res.MakeSprite(HGrad(), 100, "sweep"), Color.white);
-            Ui.Fill(sweep.rectTransform);
-
-            var logo = GlitchText.Make(Root, "FLAPPY CRIX", 110, Color.white, TextAnchor.MiddleLeft);
-            Ui.Place((RectTransform)logo.transform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(110, -70), new Vector2(1100, 150));
-            var tag = Tagline(Root, "T A P   ·   C O L L E C T   ·   D R I P", 24);
-            Ui.Place(tag.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(118, -212), new Vector2(800, 40));
-            var line = Ui.Img(Root, "Line", Res.Rounded(2, 0, Ui.Red, new Color(Ui.Orange.r, Ui.Orange.g, Ui.Orange.b, 0)), Color.white);
-            Ui.Place(line.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -240), new Vector2(560, 4));
-
-            var list = Ui.Rect(Root, "Buttons");
-            Ui.Place(list, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -110), new Vector2(640, 800));
-            listRt = list;
-            var v = list.gameObject.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 10; v.childAlignment = TextAnchor.UpperLeft; v.childControlHeight = false; v.childControlWidth = false;
-            v.childForceExpandHeight = false; v.childForceExpandWidth = false;
-
-            var items = new List<Selectable>();
-            items.Add(Ui.MenuButton(list, "PLAY", "Solo run. Beat your best.", play, 560, 88, "25b6", Ui.Look.Primary));
-            items.Add(Ui.MenuButton(list, "PLAY ONLINE", "Free Play, Race, Last One Standing, Coin Rush", online, 560, 88, "1f3ae", Ui.Look.Online));
-            items.Add(Ui.MenuButton(list, "SHOP", null, shop, 560, 60, "1f6d2"));
-            dailyButton = Ui.MenuButton(list, "DAILY", null, daily, 560, 60, "1f381");
-            items.Add(dailyButton);
-            items.Add(Ui.MenuButton(list, "AWARDS", null, awards, 560, 60, "1f3c6"));
-            accountButton = Ui.MenuButton(list, "ACCOUNT", null, account, 560, 60, "1f465");
-            items.Add(accountButton);
-            items.Add(Ui.MenuButton(list, "SETTINGS", null, settings, 560, 60, "2699"));
-            items.Add(Ui.MenuButton(list, "CREDITS", null, credits, 560, 60, "2728"));
-            if (!Settings.IsMobile) items.Add(Ui.MenuButton(list, "QUIT", null, quit, 560, 60, "1f6aa"));
-            Ui.Chain(items.ToArray());
-            FirstSelect = items[0];
-
-            // player card on the right
-            var crt = Ui.Card(Root, "Card", Ui.Red);
-            Ui.Place(crt, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 440));
-            cardRt = crt;
-            // the bird in its framed square, as on the site's menu
-            var frame = Ui.Img(crt, "BirdFrame", Res.Rounded(20), new Color(0.07f, 0.07f, 0.1f, 1));
-            Ui.Place(frame.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(36, -30), new Vector2(120, 120));
-            var frameEdge = Ui.Img(frame.rectTransform, "Edge", Res.Rounded(20, 3, Ui.Red, Ui.Orange), Color.white);
-            Ui.Fill(frameEdge.rectTransform);
-            var birdPic = Ui.Img(frame.rectTransform, "Bird", Res.Get("bird"), Color.white);
-            birdPic.preserveAspect = true;
-            Ui.Fill(birdPic.rectTransform, 8, 8, 8, 8);
-            welcome = Ui.Label(crt, "PLAYER", 22, Ui.Dim, TextAnchor.MiddleLeft, false);
-            Ui.Place(welcome.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(176, -40), new Vector2(360, 36));
-            level = Ui.Label(crt, "LEVEL 1", 44, Color.white);
-            Ui.Place(level.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(176, -86), new Vector2(360, 56));
-            var xpBack = Ui.Img(crt, "XpBack", Res.Rounded(5), new Color(1, 1, 1, 0.1f));
-            Ui.Place(xpBack.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(178, -140), new Vector2(340, 10));
-            xpFill = Ui.Img(xpBack.rectTransform, "XpFill", Res.Rounded(5, 0, Ui.Red, Ui.Orange), Color.white);
-            xpFill.rectTransform.anchorMin = Vector2.zero; xpFill.rectTransform.anchorMax = new Vector2(0, 1); xpFill.rectTransform.pivot = new Vector2(0, 0.5f);
-            xpText = Ui.Label(crt, "", 20, Ui.Dim, TextAnchor.MiddleLeft, false);
-            Ui.Place(xpText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(178, -164), new Vector2(340, 30));
-            coins = Stat(crt, "COINS", "coin", -210, Ui.Gold);
-            best = Stat(crt, "BEST", "1f3c6", -270, Color.white);
-            games = Stat(crt, "GAMES", "1f579", -330, Color.white);
-        }
-
-        static Texture2D HGrad()
-        {
-            var t = new Texture2D(256, 1, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
-            var px = new Color32[256];
-            for (int x = 0; x < 256; x++) px[x] = new Color32(10, 10, 15, (byte)(Mathf.Clamp01(1 - x / 210f) * 225));
-            t.SetPixels32(px); t.Apply(false);
-            return t;
-        }
-
-        public override void Tick(float dt)
-        {
-            // phones held upright: the stats card goes under the buttons
-            bool portrait = Screen.height > Screen.width;
-            if (portrait)
-            {
-                Ui.Place(listRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-20, -280), new Vector2(640, 800));
-                Ui.Place(cardRt, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 120), new Vector2(560, 440));
-            }
-            else
-            {
-                Ui.Place(listRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -110), new Vector2(640, 800));
-                Ui.Place(cardRt, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-90, -40), new Vector2(560, 440));
-            }
-        }
-
-        static Text Stat(RectTransform card, string name, string icon, float y, Color valueColour)
-        {
-            var chip = Ui.Img(card, name, Res.Rounded(16), new Color(1, 1, 1, 0.04f));
-            Ui.Place(chip.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(36, y), new Vector2(488, 50));
-            var ic = Ui.Img(chip.rectTransform, "Icon", Res.Emoji(icon), Color.white);
-            ic.preserveAspect = true;
-            Ui.Place(ic.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(16, 0), new Vector2(30, 30));
-            var l = Ui.Label(chip.rectTransform, name, 22, Ui.Green, TextAnchor.MiddleLeft, false);
-            Ui.Place(l.rectTransform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(60, 0), new Vector2(200, 40));
-            var v = Ui.Label(chip.rectTransform, "0", 32, valueColour, TextAnchor.MiddleRight);
-            Ui.Place(v.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-18, 0), new Vector2(240, 44));
-            return v;
-        }
-
-        protected override void OnShow() { Refresh(); }
-
-        public void Refresh()
-        {
-            var inv = CultureInfo.InvariantCulture;
-            welcome.text = AccountLine().ToUpperInvariant();
-            dailyButton.Label.text = DailyBadge() ? "DAILY  <color=#FFD54A>●</color>" : "DAILY";
-            dailyButton.Label.supportRichText = true;
-            level.text = save.Level >= Catalog.MaxLevel ? "LEVEL " + save.Level + " (MAX)" : "LEVEL " + save.Level;
-            int need = Catalog.XpForLevel(save.Level);
-            float f = save.Level >= Catalog.MaxLevel ? 1 : Mathf.Clamp01(save.Xp / (float)need);
-            xpFill.rectTransform.sizeDelta = new Vector2(400 * f, 0);
-            xpText.text = save.Level >= Catalog.MaxLevel ? "MAX LEVEL" : save.Xp + " / " + need + " XP";
-            best.text = save.Best.ToString(inv);
-            coins.text = Catalog.FormatCoins(save.Coins);
-            games.text = save.Games.ToString(inv);
         }
     }
 
@@ -515,9 +392,9 @@ namespace FlappyCrix
         {
             FadeSpeed = 10;
             Shade(Root, 0.7f);
-            var title = GlitchText.Make(Root, "PAUSED", 120, Color.white, TextAnchor.MiddleLeft);
-            Ui.Place((RectTransform)title.transform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(110, 260), new Vector2(1000, 160));
+            pauseTitle = GlitchText.Make(Root, "PAUSED", 120, Color.white, TextAnchor.MiddleLeft);
             var list = Ui.Rect(Root, "Buttons");
+            pauseList = list;
             Ui.Place(list, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -40), new Vector2(640, 360));
             var v = list.gameObject.AddComponent<VerticalLayoutGroup>();
             v.spacing = 14; v.childControlHeight = false; v.childControlWidth = false; v.childForceExpandHeight = false; v.childForceExpandWidth = false;
@@ -526,6 +403,25 @@ namespace FlappyCrix
             var c = Ui.MenuButton(list, "MAIN MENU", "Ends this run", menu, 560, 84, "1f6aa");
             Ui.Chain(new Selectable[] { a, b, c });
             FirstSelect = a;
+        }
+
+        readonly GlitchText pauseTitle;
+        readonly RectTransform pauseList;
+
+        protected override void Layout(Ui.Form form)
+        {
+            if (form == Ui.Form.Portrait)
+            {
+                pauseTitle.Main.alignment = TextAnchor.MiddleCenter;
+                Ui.Place((RectTransform)pauseTitle.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 330), new Vector2(1000, 160));
+                Ui.Place(pauseList, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(40, -60), new Vector2(640, 360));
+            }
+            else
+            {
+                pauseTitle.Main.alignment = TextAnchor.MiddleLeft;
+                Ui.Place((RectTransform)pauseTitle.transform, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(110, 260), new Vector2(1000, 160));
+                Ui.Place(pauseList, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(70, -40), new Vector2(640, 360));
+            }
         }
     }
 

@@ -35,6 +35,17 @@ namespace FlappyCrix
             Ui.Place((RectTransform)BackButton.transform, new Vector2(0, 0), new Vector2(0, 0), new Vector2(90, 46), new Vector2(300, 72));
         }
 
+        protected override void Layout(Ui.Form form)
+        {
+            bool tall = form == Ui.Form.Portrait;
+            // upright: the coins / status line goes under the title instead of beside it
+            if (tall) Ui.Place(Corner.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(90, -150), new Vector2(900, 50));
+            else Ui.Place(Corner.rectTransform, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-90, -60), new Vector2(700, 60));
+            Corner.alignment = tall ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+            Content.offsetMin = new Vector2(tall ? 40 : 90, 150);
+            Content.offsetMax = new Vector2(tall ? -40 : -90, tall ? -220 : -180);
+        }
+
         protected void Select(Selectable s)
         {
             if (s != null && UnityEngine.EventSystems.EventSystem.current != null)
