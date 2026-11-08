@@ -9,12 +9,13 @@
 
 using System;
 using System.Collections.Generic;
-using FlappyCrix.Core;
+using FlappyCrix.Native;
+using FlappyCrix.Online;
 using UnityEngine;
 
 namespace FlappyCrix
 {
-    public sealed class World : MonoBehaviour
+    public sealed partial class World : MonoBehaviour
     {
         public const float U = 0.01f;           // world units per sim pixel
         const float Tick = 1f / 60f;
@@ -27,6 +28,10 @@ namespace FlappyCrix
         public bool Frozen;
         public float SimSpeed = 1;
         public Season Season;
+        /// <summary>The save whose hat and trail the bird wears.</summary>
+        public Func<SaveData> SaveRef;
+        /// <summary>Multiplayer: the other players' birds are drawn while a match is on.</summary>
+        public Multiplayer Mp;
 
         public event Action<int> Scored;
         public event Action<int> Died;
@@ -247,9 +252,8 @@ namespace FlappyCrix
 
         // ------------------------------------------------------------------ running
 
-        public void NewRun(int seed = 0)
+        public void NewRun()
         {
-            if (seed != 0) Sim.Reseed(seed);
             Sim.Immortal = false;
             Sim.StartRun();
             acc = 0;
@@ -262,7 +266,7 @@ namespace FlappyCrix
         {
             Attract = true;
             Sim.Immortal = true;
-            if (Sim.Screen != "playing") Sim.StartRun();
+            if (Sim.Screen != "playing" || Sim.Mp) { Sim.LeaveMp(); Sim.StartRun(); }
             Frozen = false;
             SimSpeed = 1;
         }
@@ -417,6 +421,7 @@ namespace FlappyCrix
             int ci = 0;
             foreach (var c in Sim.CoinList)
             {
+                if (c.HiddenUntil > Sim.Ticks) continue;      // someone else took it (multiplayer)
                 var v = CoinAt(ci++);
                 v.Root.localPosition = new Vector3((c.X + 10 - slide) * U, (NativeSim.H - c.Y - 10) * U + Mathf.Sin(t * 3 + c.X * 0.05f) * 0.03f, 0);
                 v.Coin.transform.localScale = new Vector3(Mathf.Abs(Mathf.Cos(t * 3.5f + c.X * 0.03f)) * 0.9f + 0.1f, 1, 1) * CoinScale();
@@ -433,6 +438,9 @@ namespace FlappyCrix
             birdGlow.transform.localPosition = bp;
             birdGlow.transform.localScale = Vector3.one * (0.9f + 0.1f * Mathf.Sin(t * 6));
             birdGlow.enabled = bird.enabled && Settings.Effects != Settings.Fx.Off;
+
+            Dress(t);
+            DrawRemotes();
 
             // trail
             int n = Sim.Trail.Count / 2;

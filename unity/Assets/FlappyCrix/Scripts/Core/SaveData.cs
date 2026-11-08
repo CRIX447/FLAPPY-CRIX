@@ -10,7 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 
-namespace FlappyCrix.Core
+namespace FlappyCrix.Native
 {
     public sealed class SaveData
     {
@@ -18,14 +18,17 @@ namespace FlappyCrix.Core
         public int Best, Games, Xp, Level = 1;
         public HashSet<string> Owned = new HashSet<string>();
         public string Hat = "", Trail = "";
-        public string LastInitials = "AAA";
         public HashSet<string> Achievements = new HashSet<string>();
         public int DailyLast, DailyStreak;
+        /// <summary>When this progress last changed (ms since 1970, UTC) - the website's "savedAt": newer wins.</summary>
+        public long SavedAt;
+        /// <summary>The number in "Guest 1234" (multiplayer name when not signed in), like the site's.</summary>
+        public int GuestNo;
         public Dictionary<string, HashSet<int>> Calendar = new Dictionary<string, HashSet<int>>();
         public Dictionary<string, double> PowerupEnds = new Dictionary<string, double>();   // not saved
 
         // Settings (the site's defaults)
-        public bool MusicOn = true, SfxOn = true, MenuClicks = false, LightTheme = false, ReducedMotion = false;
+        public bool MusicOn = true, SfxOn = true, MenuClicks = true, LightTheme = false, ReducedMotion = false;
         public int MusicVol = 30, SfxVol = 100;
         public string SeasonChoice = "auto";
 
@@ -33,6 +36,33 @@ namespace FlappyCrix.Core
         private readonly string path;
 
         public SaveData(string path) { this.path = path; }
+
+        public string FilePath => path;
+
+        public static long NowMs() => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+
+        /// <summary>A copy that saves to another file (the first sign-in adopts the guest progress).</summary>
+        public SaveData CopyTo(string newPath)
+        {
+            var c = new SaveData(newPath)
+            {
+                Coins = Coins, Best = Best, Games = Games, Xp = Xp, Level = Level, Hat = Hat, Trail = Trail,
+                DailyLast = DailyLast, DailyStreak = DailyStreak, SavedAt = SavedAt,
+                MusicOn = MusicOn, SfxOn = SfxOn, MenuClicks = MenuClicks, LightTheme = LightTheme, ReducedMotion = ReducedMotion,
+                MusicVol = MusicVol, SfxVol = SfxVol, SeasonChoice = SeasonChoice,
+            };
+            c.Owned = new HashSet<string>(Owned);
+            c.Achievements = new HashSet<string>(Achievements);
+            foreach (var kv in Calendar) c.Calendar[kv.Key] = new HashSet<int>(kv.Value);
+            return c;
+        }
+
+        /// <summary>Settings follow the player across accounts on this PC.</summary>
+        public void CopySettingsFrom(SaveData o)
+        {
+            MusicOn = o.MusicOn; SfxOn = o.SfxOn; MenuClicks = o.MenuClicks; LightTheme = o.LightTheme; ReducedMotion = o.ReducedMotion;
+            MusicVol = o.MusicVol; SfxVol = o.SfxVol; SeasonChoice = o.SeasonChoice;
+        }
 
         public static SaveData Load(string path, Action<string> log = null)
         {
@@ -65,18 +95,19 @@ namespace FlappyCrix.Core
                 case "owned": Owned = Set(v); break;
                 case "hat": Hat = v; break;
                 case "trail": Trail = v; break;
-                case "initials": LastInitials = v; break;
                 case "achievements": Achievements = Set(v); break;
                 case "dailyLast": if (int.TryParse(v, out i)) DailyLast = i; break;
                 case "dailyStreak": if (int.TryParse(v, out i)) DailyStreak = i; break;
                 case "music": MusicOn = v == "1"; break;
                 case "sfx": SfxOn = v == "1"; break;
-                case "menuClicks": MenuClicks = v == "1"; break;
+                case "uiSounds": MenuClicks = v == "1"; break;      // menu navigation sounds (the old "menuClicks" key, off by default, is ignored)
                 case "light": LightTheme = v == "1"; break;
                 case "reducedMotion": ReducedMotion = v == "1"; break;
                 case "musicVol": if (int.TryParse(v, out i)) MusicVol = Math.Max(0, Math.Min(100, i)); break;
                 case "sfxVol": if (int.TryParse(v, out i)) SfxVol = Math.Max(0, Math.Min(100, i)); break;
                 case "season": SeasonChoice = v; break;
+                case "savedAt": if (long.TryParse(v, out l)) SavedAt = l; break;
+                case "guestNo": if (int.TryParse(v, out i)) GuestNo = i; break;
                 default:
                     if (k.StartsWith("cal_", StringComparison.Ordinal))
                     {
@@ -100,7 +131,7 @@ namespace FlappyCrix.Core
             Dirty = false;
             if (path == null) return;
             var b = new StringBuilder();
-            b.AppendLine("# Flappy Crix Arcade - your progress on this machine. Made with AI (Claude by Anthropic).");
+            b.AppendLine("# Flappy Crix for Gorilla Tag - your progress in the in-game version. Made with AI (Claude by Anthropic).");
             b.Append("coins=").Append(Coins).AppendLine();
             b.Append("best=").Append(Best).AppendLine();
             b.Append("games=").Append(Games).AppendLine();
@@ -109,7 +140,6 @@ namespace FlappyCrix.Core
             b.Append("owned=").Append(string.Join(",", new List<string>(Owned).ToArray())).AppendLine();
             b.Append("hat=").Append(Hat).AppendLine();
             b.Append("trail=").Append(Trail).AppendLine();
-            b.Append("initials=").Append(LastInitials).AppendLine();
             b.Append("achievements=").Append(string.Join(",", new List<string>(Achievements).ToArray())).AppendLine();
             b.Append("dailyLast=").Append(DailyLast).AppendLine();
             b.Append("dailyStreak=").Append(DailyStreak).AppendLine();
@@ -117,10 +147,12 @@ namespace FlappyCrix.Core
             b.Append("musicVol=").Append(MusicVol).AppendLine();
             b.Append("sfx=").Append(SfxOn ? 1 : 0).AppendLine();
             b.Append("sfxVol=").Append(SfxVol).AppendLine();
-            b.Append("menuClicks=").Append(MenuClicks ? 1 : 0).AppendLine();
+            b.Append("uiSounds=").Append(MenuClicks ? 1 : 0).AppendLine();
             b.Append("light=").Append(LightTheme ? 1 : 0).AppendLine();
             b.Append("reducedMotion=").Append(ReducedMotion ? 1 : 0).AppendLine();
             b.Append("season=").Append(SeasonChoice).AppendLine();
+            b.Append("savedAt=").Append(SavedAt).AppendLine();
+            if (GuestNo > 0) b.Append("guestNo=").Append(GuestNo).AppendLine();
             foreach (var kv in Calendar)
             {
                 var doors = new List<int>(kv.Value); doors.Sort();

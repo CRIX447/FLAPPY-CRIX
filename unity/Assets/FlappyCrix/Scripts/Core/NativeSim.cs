@@ -11,7 +11,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace FlappyCrix.Core
+namespace FlappyCrix.Native
 {
     public sealed class NativeSim
     {
@@ -23,7 +23,7 @@ namespace FlappyCrix.Core
         public const int GroundH = 66, SkyH = H - GroundH;          // drawn ground: round(600 * 0.11)
 
         public sealed class Pipe { public float X, Top, Bottom; public bool Scored; public int Web; }
-        public sealed class Coin { public float X, Y; public bool Taken; }
+        public sealed class Coin { public float X, Y; public bool Taken; public int Id; public long HiddenUntil; }
         public sealed class Chunk { public float X, Y, VX, VY, R, Rot, Spin; }
         public sealed class Pumpkin
         {
@@ -70,26 +70,86 @@ namespace FlappyCrix.Core
 
         private int grace, lastPipeBeat;
         private float lastTop, pendingTop = -1;
-        private Random rng;
+        private readonly Random rng;
 
-        /// <summary>Spectating: the bird is moved from outside (SetBird) and never dies.</summary>
+        public NativeSim(int seed = 0) { rng = seed == 0 ? new Random() : new Random(seed); }
+
+        private float Rnd() => Mp ? (float)RngStep(ref mpState) : (float)rng.NextDouble();
+        /// <summary>Decoration (cobwebs, pumpkins): the site's separate "prop" stream in multiplayer.</summary>
+        private float PropRnd() => Mp ? (float)RngStep(ref propState) : (float)rng.NextDouble();
+        private int PropNext(int n) => Mp ? Math.Min(n - 1, (int)(RngStep(ref propState) * n)) : rng.Next(n);
+
+        // ------------------------------------------------------------------ multiplayer (the website's rules)
+        // In a room every player builds the same pipes and coins from the host's seed, with the
+        // site's Mulberry32-style generator (flappycrix.html rngStep), one fixed gap of 170 and
+        // numbered coins, so a coin someone else takes disappears for everyone.
+
+        public bool Mp { get; private set; }
+        /// <summary>Menus: pipes pass through and the floor holds the bird (nothing ends the run).</summary>
         public bool Immortal;
         /// <summary>Where new pipes and coins appear and where old ones go away (sim pixels). The
         /// website shows exactly 0..W; a wider screen moves these out so nothing pops in or out on screen.</summary>
         public float SpawnX = W, DespawnX = 0;
+        public bool CoinRush;
+        public float Travelled { get; private set; }
+        public long Ticks { get; private set; }            // ticks since the match started (respawns don't reset it)
+        public int CoinsThisMatch;
+        private uint mpState, propState;
+        private int coinSeq;
+        private readonly Dictionary<int, long> taken = new Dictionary<int, long>();   // coin id -> tick it went
+        public const int CoinRespawnTicks = 600;           // 10 s
+        public event Action<int> CoinTaken;                // my pickup: the coin's id
 
-        public NativeSim(int seed = 0) { rng = seed == 0 ? new Random() : new Random(seed); }
+        public static double RngStep(ref uint s)
+        {
+            unchecked
+            {
+                s += 0x6D2B79F5u;
+                uint z = s;
+                z = (z ^ (z >> 15)) * (z | 1u);
+                z ^= z + ((z ^ (z >> 7)) * (z | 61u));
+                return (z ^ (z >> 14)) / 4294967296.0;
+            }
+        }
 
-        /// <summary>A race: every racer's game gets the same seed, so the same pipes and coins.</summary>
-        public void Reseed(int seed) { rng = new Random(seed); }
+        /// <summary>A multiplayer run from the shared seed. newMatch = forget the coins taken so far.</summary>
+        public void StartMp(uint seed, bool coinRush, bool newMatch)
+        {
+            StartRun();
+            Mp = true;
+            CoinRush = coinRush;
+            mpState = seed != 0 ? seed : 12345u;
+            unchecked { propState = mpState + 0x9E3779B9u; }
+            coinSeq = 0;
+            Travelled = 0;
+            if (newMatch) { taken.Clear(); Ticks = 0; CoinsThisMatch = 0; }
+        }
 
-        private float Rnd() => (float)rng.NextDouble();
+        /// <summary>Back to single player.</summary>
+        public void LeaveMp() { Mp = false; CoinRush = false; taken.Clear(); }
+
+        /// <summary>Back in after a crash (Race, Coin Rush): same world, bird at the start height, grace ticks.</summary>
+        public void Respawn()
+        {
+            BirdY = PrevBirdY = 300; Velocity = 0; grace = GraceTicks;
+            Screen = "playing";
+        }
+
+        /// <summary>Someone took coin id: it vanishes (for 10 s, or for good in Coin Rush).</summary>
+        public void MarkTaken(int id)
+        {
+            taken[id] = Ticks;
+            foreach (var c in CoinList) if (c.Id == id) c.HiddenUntil = CoinRush ? long.MaxValue : Ticks + CoinRespawnTicks;
+        }
+
+        public void EndMatch() { if (Screen == "playing") Screen = "dead"; }
 
         public void StartRun()
         {
             Pipes.Clear(); CoinList.Clear(); Pumpkins.Clear(); Trail.Clear();
             BirdY = PrevBirdY = 300; Velocity = 0; Frame = 0; Score = 0; RunCoins = 0; grace = GraceTicks;
             lastTop = 0; pendingTop = -1; lastPipeBeat = 0; HatAngle = HatVel = 0;
+            Travelled = 0; Mp = false; CoinRush = false;
             Screen = "playing";
         }
 
@@ -107,7 +167,7 @@ namespace FlappyCrix.Core
         public void Pause() { if (Screen == "playing") Screen = "paused"; }
         public void Resume() { if (Screen == "paused") Screen = "playing"; }
 
-        public float Gap() => Math.Max(182f, 215f - Score * 1.2f);
+        public float Gap() => Mp ? 170f : Math.Max(182f, 215f - Score * 1.2f);
 
         private float NextTop(float gap)
         {
@@ -157,14 +217,79 @@ namespace FlappyCrix.Core
             Powerups[id] = Math.Max(left, seconds);
         }
 
+        /// <summary>What arrives at the right-hand edge this tick (steps 5 and 6 of updateGame): drawn
+        /// from the shared generator in a fixed order, so every player in a room lays the identical lane.</summary>
+        private void SpawnLane()
+        {
+            // 5. pipes, the top chosen one beat early
+            if (Frame % PipeTicks == 0)
+            {
+                float gap = Gap();
+                float top = pendingTop >= 0 ? pendingTop : NextTop(gap);
+                lastTop = top; lastPipeBeat = Frame;
+                int web = 0;
+                if (Halloween && PropRnd() < 0.45f)
+                {
+                    int[] corners = { 1, 2, 4, 8 };
+                    web = corners[PropNext(4)];
+                    if (PropRnd() < 0.35f) web |= corners[PropNext(4)];
+                }
+                Pipes.Add(new Pipe { X = SpawnX, Top = top, Bottom = top + Gap(), Web = web });
+                pendingTop = NextTop(gap);
+            }
+
+            // 6. coins
+            if (Frame % (CoinRush ? 18 : CoinTicks) == 0)
+            {
+                float gap = Gap();
+                float spread = gap * 0.30f;
+                float y = Pipes.Count > 0 ? LaneCentre() + (Rnd() - 0.5f) * spread * 2 : Rnd() * (H - 200) + 100;
+                var coin = new Coin { X = SpawnX, Y = Math.Max(60, Math.Min(H - 90, y)) - 10, Id = ++coinSeq };
+                long went;
+                if (Mp && taken.TryGetValue(coin.Id, out went)) coin.HiddenUntil = CoinRush ? long.MaxValue : went + CoinRespawnTicks;
+                CoinList.Add(coin);
+            }
+        }
+
+        private bool ghost;     // a tick of the lane with nobody in it: no hits, no prizes
+
+        /// <summary>The tick a bird crashes on stops short: its distance has moved on but the lane after
+        /// the crash point hasn't. Where the lane carries on after a crash (Race), it finishes the tick
+        /// (with nobody in it) - otherwise every crash left this lane a step out from everyone else's.</summary>
+        private void FinishCrashTick(int fromPipe, bool spawn)
+        {
+            if (!Mp) return;
+            ghost = true;
+            try
+            {
+                if (spawn) SpawnLane();
+                for (int i = fromPipe; i < Pipes.Count; i++)
+                {
+                    var p = Pipes[i];
+                    p.X -= Speed;
+                    if (p.X + PipeWidth < BirdX) p.Scored = true;
+                    if (p.X + PipeWidth < DespawnX) Pipes.RemoveAt(i--);
+                }
+                for (int i = 0; i < CoinList.Count; i++)
+                {
+                    CoinList[i].X -= Speed;
+                    if (CoinList[i].X + 20 < DespawnX) CoinList.RemoveAt(i--);
+                }
+                Frame++;
+                if (Halloween) StepPumpkins();
+            }
+            finally { ghost = false; }
+        }
+
         /// <summary>One 60 Hz tick (updateGame).</summary>
         public void Step()
         {
             if (Screen != "playing") return;
-            float gap;
 
             // 1. scenery and trail
             BgOffset += SceneryStep;
+            Travelled += Speed;
+            Ticks++;
             for (int i = 0; i < Trail.Count; i += 2) Trail[i] -= Speed;
             Trail.Add(BirdX); Trail.Add(BirdY);
             while (Trail.Count > TrailPoints * 2) Trail.RemoveRange(0, 2);
@@ -188,34 +313,11 @@ namespace FlappyCrix.Core
             if (BirdY > FloorY)
             {
                 if (shield || Immortal) { BirdY = FloorY; Velocity = Immortal ? 0 : -Math.Abs(Velocity) * 0.5f; }
-                else { Die(); return; }
+                else { Die(); FinishCrashTick(0, true); return; }
             }
 
-            // 5. pipes, the top chosen one beat early
-            if (Frame % PipeTicks == 0)
-            {
-                gap = Gap();
-                float top = pendingTop >= 0 ? pendingTop : NextTop(gap);
-                lastTop = top; lastPipeBeat = Frame;
-                int web = 0;
-                if (Halloween && Rnd() < 0.45f)
-                {
-                    int[] corners = { 1, 2, 4, 8 };
-                    web = corners[rng.Next(4)];
-                    if (Rnd() < 0.35f) web |= corners[rng.Next(4)];
-                }
-                Pipes.Add(new Pipe { X = SpawnX, Top = top, Bottom = top + Gap(), Web = web });
-                pendingTop = NextTop(gap);
-            }
-
-            // 6. coins
-            if (Frame % CoinTicks == 0)
-            {
-                gap = Gap();
-                float spread = gap * 0.30f;
-                float y = Pipes.Count > 0 ? LaneCentre() + (Rnd() - 0.5f) * spread * 2 : Rnd() * (H - 200) + 100;
-                CoinList.Add(new Coin { X = SpawnX, Y = Math.Max(60, Math.Min(H - 90, y)) - 10 });
-            }
+            // 5-6. pipes and coins arrive
+            SpawnLane();
 
             // 7. pipes move, hit, score
             float rx = BirdSize * HitRX, ry = BirdSize * HitRY;
@@ -225,7 +327,7 @@ namespace FlappyCrix.Core
                 p.X -= Speed;
                 if (!shield && !Immortal && (HitsRectE(BirdX, BirdY, rx, ry, p.X, -1000, PipeWidth, p.Top + 1000) ||
                                 HitsRectE(BirdX, BirdY, rx, ry, p.X, p.Bottom, PipeWidth, H - p.Bottom + 20)))
-                { Die(); return; }
+                { Die(); FinishCrashTick(i + 1, false); return; }
                 if (p.X + PipeWidth < BirdX && !p.Scored)
                 {
                     p.Scored = true; Score++;
@@ -241,6 +343,7 @@ namespace FlappyCrix.Core
             {
                 var c = CoinList[i];
                 c.X -= Speed;
+                if (c.HiddenUntil > Ticks) { if (c.X + 20 < DespawnX) CoinList.RemoveAt(i--); continue; }
                 if (magnet && !c.Taken)
                 {
                     float dx = BirdX - (c.X + 10), dy = BirdY - (c.Y + 10);
@@ -251,6 +354,8 @@ namespace FlappyCrix.Core
                     c.Taken = true;
                     int n = CoinMultiplier;
                     RunCoins += n;
+                    CoinsThisMatch++;
+                    if (Mp) { taken[c.Id] = Ticks; CoinTaken?.Invoke(c.Id); }
                     Sound?.Invoke("coin", 1f);
                     CoinsGained?.Invoke(n);
                 }
@@ -265,11 +370,11 @@ namespace FlappyCrix.Core
 
         private void StepPumpkins()
         {
-            if (Frame % PipeTicks == 60 && Rnd() < 0.42f)
+            if (Frame % PipeTicks == 60 && PropRnd() < 0.42f)
                 Pumpkins.Add(new Pumpkin
                 {
-                    X = W + 30, Y = Math.Max(90, Math.Min(H - 120, LaneCentre() + (Rnd() - 0.5f) * 40)),
-                    Tilt = (Rnd() - 0.5f) * 0.4f, Prize = Rnd(),
+                    X = SpawnX + 30, Y = Math.Max(90, Math.Min(H - 120, LaneCentre() + (PropRnd() - 0.5f) * 40)),
+                    Tilt = (PropRnd() - 0.5f) * 0.4f, Prize = PropRnd(),
                 });
             float brx = BirdSize * HitRX + 21, bry = BirdSize * HitRY + 21 * 0.86f;
             for (int i = 0; i < Pumpkins.Count; i++)
@@ -284,7 +389,7 @@ namespace FlappyCrix.Core
                 }
                 p.X -= Speed;
                 float dx = BirdX - p.X, dy = BirdY - p.Y;
-                if (dx * dx / (brx * brx) + dy * dy / (bry * bry) < 1) Smash(p);
+                if (!ghost && dx * dx / (brx * brx) + dy * dy / (bry * bry) < 1) Smash(p);
                 else if (p.X < -40) Pumpkins.RemoveAt(i--);
             }
         }
@@ -295,12 +400,12 @@ namespace FlappyCrix.Core
             p.Chunks = new Chunk[8];
             for (int i = 0; i < 8; i++)
             {
-                double a = i / 8.0 * 2 * Math.PI + Rnd() * 0.4;
-                float sp = 1.6f + Rnd() * 2.4f;
+                double a = i / 8.0 * 2 * Math.PI + PropRnd() * 0.4;
+                float sp = 1.6f + PropRnd() * 2.4f;
                 p.Chunks[i] = new Chunk
                 {
-                    X = p.X, Y = p.Y, VX = (float)Math.Cos(a) * sp + 1.2f, VY = (float)Math.Sin(a) * (1.6f + Rnd() * 2.4f) - 1.4f,
-                    R = 4 + Rnd() * 6, Spin = (Rnd() - 0.5f) * 0.35f,
+                    X = p.X, Y = p.Y, VX = (float)Math.Cos(a) * sp + 1.2f, VY = (float)Math.Sin(a) * (1.6f + PropRnd() * 2.4f) - 1.4f,
+                    R = 4 + PropRnd() * 6, Spin = (PropRnd() - 0.5f) * 0.35f,
                 };
             }
             Sound?.Invoke("smash", 0.8f);

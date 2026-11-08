@@ -2,7 +2,7 @@
 // Part of Flappy Crix (Unity), from Flappy Crix for Gorilla Tag - made with AI (Claude by Anthropic).
 using System;
 
-namespace FlappyCrix.Core
+namespace FlappyCrix.Native
 {
     public static class Col
     {

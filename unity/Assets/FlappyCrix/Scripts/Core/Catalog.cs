@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace FlappyCrix.Core
+namespace FlappyCrix.Native
 {
     public static class Catalog
     {
