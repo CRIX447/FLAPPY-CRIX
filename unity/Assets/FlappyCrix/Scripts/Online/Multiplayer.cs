@@ -52,6 +52,9 @@ namespace FlappyCrix.Online
             public List<string> Roles = new List<string>();
             // their bird, simulated between position messages (the site's mpRemoteStep)
             public float SimY = 300, SimVel, DrawY = 300, Travelled, TravTarget;
+            // when a message corrects where we thought they were, the difference fades out over ~0.1 s
+            // instead of the bird jumping
+            public float OffY;
             public double LastPos = -99;
         }
 
@@ -89,6 +92,12 @@ namespace FlappyCrix.Online
         private uint seed;
         private double now, lastPosSent = -1, lastPing, deathAt = -1, matchStartedAt = -99, lastHostCheck;
         private bool forcePos, respawnPending, restartPending, endSent;
+        // a dropped connection mid-room: we reconnect and walk straight back into the same room
+        private string rejoinRoom;
+        private double rejoinUntil;
+        private bool leaving;
+        /// <summary>True while we're trying to get back into the room after the connection dropped.</summary>
+        public bool Rejoining => rejoinRoom != null;
         private float tickAcc;
         private readonly Random rng = new Random();
 
@@ -115,6 +124,7 @@ namespace FlappyCrix.Online
 
         public void Disconnect()
         {
+            leaving = true; rejoinRoom = null;
             Client.Disconnect();
             ClearRoom();
             State = Phase.Off;
@@ -135,6 +145,7 @@ namespace FlappyCrix.Online
                 { "queue", "casual" }, { "hostRank", null }, { "raceTarget", 100 }, { "rushTime", 300 }, { "allowSpectate", true }, { "code", c },
             };
             State = Phase.Joining;
+            leaving = false;
             Client.CreateRoom("crix_" + c, props);
         }
 
@@ -149,12 +160,14 @@ namespace FlappyCrix.Online
         public void JoinRoom(string name)
         {
             if (Client.Status != PhotonClient.State.InLobby) return;
+            leaving = false;
             State = Phase.Joining;
             Client.JoinRoom(name);
         }
 
         public void Leave()
         {
+            leaving = true; rejoinRoom = null;
             if (MatchActive) Sim.EndMatch();
             Client.LeaveRoom();
             ClearRoom();
@@ -252,7 +265,23 @@ namespace FlappyCrix.Online
             foreach (var e in Client.TakeEvents()) Handle(e);
 
             if (Client.Status == PhotonClient.State.InLobby && (State == Phase.Connecting || State == Phase.Joining)) State = Phase.Lobby;
-            if (Client.Status == PhotonClient.State.Error && State != Phase.Off) { Error = Client.Error; ClearRoom(); State = Phase.Off; }
+            if (Client.Status == PhotonClient.State.Error && State != Phase.Off)
+            {
+                // lost it while in a room (not because we left): remember the room for a minute
+                if (InRoom && !leaving)
+                {
+                    rejoinRoom = !string.IsNullOrEmpty(Client.RoomName) ? Client.RoomName : (RoomCode != null ? "crix_" + RoomCode : null);
+                    rejoinUntil = now + 60;
+                    if (rejoinRoom != null) Notice?.Invoke("Connection lost", "Getting you back into the room...");
+                }
+                Error = Client.Error; ClearRoom(); State = Phase.Off;
+            }
+            // back in the lobby after a drop: go straight back to the room
+            if (rejoinRoom != null && State == Phase.Lobby && Client.Status == PhotonClient.State.InLobby)
+            {
+                string r = rejoinRoom; rejoinRoom = null;
+                if (now < rejoinUntil) JoinRoom(r);
+            }
             if (!InRoom) return;
 
             // who's who (names can change through properties)
@@ -302,7 +331,15 @@ namespace FlappyCrix.Online
             int steps = 0;
             while (tickAcc >= TickMs / 1000f && steps < 5) { tickAcc -= TickMs / 1000f; steps++; foreach (var p in Players.Values) if (!p.Me) RemoteStep(p); }
             if (steps >= 5) tickAcc = 0;
-            foreach (var p in Players.Values) if (!p.Me) p.DrawY += (p.SimY - p.DrawY) * Math.Min(1f, dt * 30f);
+            float fade = (float)Math.Exp(-dt / 0.1);
+            foreach (var p in Players.Values)
+                if (!p.Me)
+                {
+                    p.OffY *= fade;
+                    // between two 60 Hz steps: carry on along their current fall/rise, so high refresh screens stay smooth
+                    float between = p.Dead || !MatchActive ? 0 : p.SimVel * Math.Min(1f, tickAcc / (TickMs / 1000f));
+                    p.DrawY = Math.Max(15, Math.Min(590, p.SimY + between)) + p.OffY;
+                }
         }
 
         private void SendPosition()
@@ -409,14 +446,25 @@ namespace FlappyCrix.Online
         private void OnCustom(int code, int actor, Dictionary<string, object> c)
         {
             if (c == null) c = new Dictionary<string, object>();
-            if (code == EvPing) { if (actor == Me) PingMs = (int)Math.Max(0, now * 1000.0 - PhotonClient.Num(c, "t")); return; }
+            if (code == EvPing)
+            {
+                if (actor == Me)
+                {
+                    int rtt = (int)Math.Max(0, now * 1000.0 - PhotonClient.Num(c, "t"));
+                    // smoothed, so one slow ping doesn't throw everyone's birds around
+                    PingMs = PingMs <= 0 ? rtt : (int)Math.Round(PingMs * 0.75 + rtt * 0.25);
+                }
+                return;
+            }
             if (actor == Me && code != EvMatchEnd) return;
             var p = Get(actor);
             switch (code)
             {
                 case EvPosition:
                 {
-                    int lag = Math.Max(0, Math.Min(10, (int)Math.Round(((PingMs > 0 ? PingMs : 60) / 2.0) / TickMs)));
+                    // how old this message is: their half of the trip plus ours, about one round trip
+                    int lag = Math.Max(0, Math.Min(12, (int)Math.Round((PingMs > 0 ? PingMs : 80) / (double)TickMs)));
+                    float shownY = p.DrawY;
                     p.SimY = (float)PhotonClient.Num(c, "y");
                     p.SimVel = (float)PhotonClient.Num(c, "v");
                     p.Score = (int)PhotonClient.Num(c, "s");
@@ -428,7 +476,7 @@ namespace FlappyCrix.Online
                         if (Math.Abs(target - p.Travelled) > 60 || p.LastPos < 0) p.Travelled = target;
                         else p.Travelled += (target - p.Travelled) * 0.35f;
                     }
-                    if (p.LastPos < 0) p.DrawY = p.SimY;
+                    bool first = p.LastPos < 0 || now - p.LastPos > 1;
                     p.LastPos = now;
                     if (!p.Dead)
                     {
@@ -436,6 +484,10 @@ namespace FlappyCrix.Online
                         for (int i = 0; i < lag; i++) RemoteStep(p);
                         p.Travelled = keepT; p.TravTarget = keepTarget;      // the distance was already carried
                     }
+                    // glide from where we were drawing them to the corrected spot (snap if it's way off or new)
+                    float off = shownY - p.SimY;
+                    p.OffY = first || p.Dead || Math.Abs(off) > 140 ? 0 : off;
+                    p.DrawY = p.SimY + p.OffY;
                     break;
                 }
                 case EvDeath:
