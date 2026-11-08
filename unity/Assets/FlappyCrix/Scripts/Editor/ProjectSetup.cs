@@ -19,7 +19,7 @@ namespace FlappyCrix.EditorTools
     [InitializeOnLoad]
     public static class ProjectSetup
     {
-        const int SetupVersion = 1;
+        const int SetupVersion = 2;
         const string ScenePath = "Assets/FlappyCrix/Scenes/Main.unity";
         const string IconPath = "Assets/FlappyCrix/Resources/FlappyCrix/Images/icon.png";
         public const string AppId = "com.crixstudios.flappycrix";
@@ -56,7 +56,7 @@ namespace FlappyCrix.EditorTools
 
             PlayerSettings.companyName = "CRIX STUDIOS";
             PlayerSettings.productName = "Flappy Crix";
-            PlayerSettings.bundleVersion = "2.0.0";
+            PlayerSettings.bundleVersion = "2.1.0";
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Standalone, AppId);
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, AppId);
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.iOS, AppId);
@@ -84,6 +84,7 @@ namespace FlappyCrix.EditorTools
             PlayerSettings.allowedAutorotateToLandscapeRight = true;
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+            PlayerSettings.Android.forceInternetPermission = true;      // online play
 
             var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
             if (icon != null) PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { icon }, IconKind.Any);

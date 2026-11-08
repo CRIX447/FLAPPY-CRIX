@@ -6,7 +6,7 @@
 
 using System;
 
-namespace FlappyCrix.Core
+namespace FlappyCrix.Native
 {
     public sealed class Season
     {

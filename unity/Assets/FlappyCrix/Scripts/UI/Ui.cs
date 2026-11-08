@@ -162,5 +162,100 @@ namespace FlappyCrix
                 items[i].navigation = n;
             }
         }
+    
+        // ------------------------------------------------------------------ bigger pieces (phase 2 screens)
+
+        /// <summary>A scrolling area; returns the content that items go into (it grows to fit them).</summary>
+        public static RectTransform Scroll(RectTransform area, bool grid, Vector2 cell, float spacing = 16)
+        {
+            var sr = area.gameObject.AddComponent<ScrollRect>();
+            sr.horizontal = false; sr.movementType = ScrollRect.MovementType.Clamped; sr.scrollSensitivity = 40;
+            var view = Fill(Rect(area, "Viewport"));
+            view.gameObject.AddComponent<RectMask2D>();
+            var hit = view.gameObject.AddComponent<Image>(); hit.color = new Color(0, 0, 0, 0);
+            var content = Rect(view, "Content");
+            content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1); content.pivot = new Vector2(0.5f, 1);
+            content.anchoredPosition = Vector2.zero; content.sizeDelta = Vector2.zero;
+            if (grid)
+            {
+                var g = content.gameObject.AddComponent<GridLayoutGroup>();
+                g.cellSize = cell; g.spacing = new Vector2(spacing, spacing); g.childAlignment = TextAnchor.UpperCenter;
+                g.constraint = GridLayoutGroup.Constraint.Flexible;
+            }
+            else
+            {
+                var v = content.gameObject.AddComponent<VerticalLayoutGroup>();
+                v.spacing = spacing; v.childControlHeight = false; v.childControlWidth = true; v.childForceExpandHeight = false; v.childForceExpandWidth = true;
+            }
+            var fit = content.gameObject.AddComponent<ContentSizeFitter>();
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr.viewport = view; sr.content = content;
+            return content;
+        }
+
+        public static void Clear(Transform t)
+        {
+            for (int i = t.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(t.GetChild(i).gameObject);
+        }
+
+        /// <summary>A small solid button (shop BUY, JOIN...).</summary>
+        public static Button SmallButton(Transform parent, string label, Action onClick, Color colour, float w = 220, float h = 64, int size = 26)
+        {
+            var r = Rect(parent, "Button " + label);
+            r.sizeDelta = new Vector2(w, h);
+            var le = r.gameObject.AddComponent<LayoutElement>(); le.preferredWidth = w; le.preferredHeight = h;
+            var img = r.gameObject.AddComponent<Image>();
+            img.sprite = Res.Slant; img.type = Image.Type.Sliced; img.color = colour;
+            var b = r.gameObject.AddComponent<SlantButton>();
+            b.targetGraphic = img;
+            b.transition = Selectable.Transition.None;
+            b.Background = img; b.Base = colour;
+            var t = Label(r, label, size, Color.white, TextAnchor.MiddleCenter);
+            Fill(t.rectTransform);
+            b.onClick.AddListener(() => { Sfx.Play("click", 0.6f); if (onClick != null) onClick(); });
+            return b;
+        }
+
+        public static void SetButtonText(Button b, string text)
+        {
+            var t = b.GetComponentInChildren<Text>();
+            if (t != null) t.text = text;
+        }
+
+        /// <summary>A card: a dark slanted panel with a bright edge.</summary>
+        public static RectTransform Card(Transform parent, string name, Color edge, float alpha = 0.85f)
+        {
+            var bg = Img(parent, name, Res.Slant, new Color(0.06f, 0.035f, 0.1f, alpha));
+            var e = Img(bg.rectTransform, "Edge", Res.SlantOutline, edge);
+            Fill(e.rectTransform);
+            return bg.rectTransform;
+        }
+
+        public static InputField Input(Transform parent, string placeholder, int max, float w, float h)
+        {
+            var r = Rect(parent, "Input");
+            r.sizeDelta = new Vector2(w, h);
+            var le = r.gameObject.AddComponent<LayoutElement>(); le.preferredWidth = w; le.preferredHeight = h;
+            var bg = r.gameObject.AddComponent<Image>(); bg.sprite = Res.White; bg.color = new Color(0, 0, 0, 0.6f);
+            var f = r.gameObject.AddComponent<InputField>();
+            var text = Label(r, "", 40, Gold, TextAnchor.MiddleCenter, false);
+            Fill(text.rectTransform, 12, 0, 12, 0);
+            text.supportRichText = false;
+            var ph = Label(r, placeholder, 30, new Color(1, 1, 1, 0.35f), TextAnchor.MiddleCenter, false);
+            Fill(ph.rectTransform, 12, 0, 12, 0);
+            f.textComponent = text; f.placeholder = ph; f.characterLimit = max;
+            f.targetGraphic = bg;
+            return f;
+        }
+
+        public static Image Bar(Transform parent, float value, Color colour, float w, float h)
+        {
+            var back = Img(parent, "Bar", Res.White, new Color(1, 1, 1, 0.1f));
+            back.rectTransform.sizeDelta = new Vector2(w, h);
+            var fill = Img(back.rectTransform, "Fill", Res.White, colour);
+            fill.rectTransform.anchorMin = Vector2.zero; fill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(value), 1);
+            fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
+            return back;
+        }
     }
 }

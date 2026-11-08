@@ -19,7 +19,7 @@ If something looks wrong after an update: **Flappy Crix → Set Up Project**.
 **Flappy Crix → Build → Windows / Mac / Linux / Android (APK) / iOS (Xcode project).**
 The finished game appears in `unity/Builds/…` and its folder opens. (Mac and iOS builds need a Mac.)
 
-## What's in this version (phase 1)
+## Phase 1: the game
 
 | | |
 |---|---|
@@ -35,12 +35,21 @@ The finished game appears in `unity/Builds/…` and its folder opens. (Mac and i
 | Clips | **F9** records a 60 fps clip with sound, **F12** saves a screenshot (computers). Clips use **FFmpeg** (free, open source); on Windows the game downloads it the first time you press F9 |
 | Saves | Best, coins, games, level and XP on this device (`Flappy Crix → Open Save Folder`) |
 
-## Coming next (phase 2)
+## Phase 2: online, shop, daily, awards, account
 
-Signing in to your crixgamingvr.com account (same progress as the website), **online play with
-website players** over the same Photon servers (the C# connection already exists in the Gorilla
-Tag mod and comes over), the store, locker, daily rewards, awards, seasonal events and the
-menu style you pick.
+| | |
+|---|---|
+| Account | **ACCOUNT** → LINK MY ACCOUNT shows a code and a QR code: open flappycrix.vercel.app/link on a phone or PC, sign in, type the code. The game links by itself. Coins, level, best, hats, trails and awards are then the same here and on the website (saved to your account) |
+| Play online | **PLAY ONLINE** plays with website players in the same Photon rooms: room list, join with a 4-letter code, create a room (Free Play, Race, Last One Standing, Coin Rush; anyone or code-only) |
+| Room | Players with their colours and levels, the host picks the mode and starts, website players' chat shows up (filtered like on the site) |
+| Match | Other players' birds fly next to you with their names; live standings, race target, Coin Rush clock, who's left; respawns like on the site; the host can end Free Play; results with the winner (+10 XP for a win, Coin Rush pays double coins) |
+| Connection | Runs in the background and keeps itself up: if it drops it reconnects by itself (2 s, 4 s ... up to 30 s) |
+| Shop | Power-ups (2X coins, shield, magnet), hats and trails at the website's prices; WEAR / WEARING doubles as the locker. Hats sit on the bird, trails change colour |
+| Daily | 7-day reward streak (100 → 600 coins) and the seasonal calendar doors with their prizes |
+| Awards | All 16 of the website's awards with progress bars (the secret ones stay secret) |
+
+Not yet: ranked and the website-only event modes (Candy Hunt, Presents, Egg Hunt) stay on the website,
+typing in chat (the website checks chat on its server first), friends and voice.
 
 ## Where things are
 

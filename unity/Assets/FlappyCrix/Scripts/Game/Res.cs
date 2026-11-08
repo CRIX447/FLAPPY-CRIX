@@ -86,7 +86,21 @@ namespace FlappyCrix
             Loaded = true;
         }
 
-        public static Sprite Get(string name) { Sprite s; return Sprites.TryGetValue(name, out s) ? s : null; }
+        public static Sprite Get(string name) { Sprite s; return name != null && Sprites.TryGetValue(name, out s) ? s : null; }
+
+        /// <summary>An emoji picture by its code ("1f381"), or the coin for "coin". Loaded the first time it's needed.</summary>
+        public static Sprite Emoji(string code)
+        {
+            if (string.IsNullOrEmpty(code)) return null;
+            if (code == "coin") return Get("coin");
+            string key = "emoji/" + code;
+            Sprite s;
+            if (Sprites.TryGetValue(key, out s)) return s;
+            var t = Resources.Load<Texture2D>(Root + "Emoji/" + code);
+            s = t != null ? MakeSprite(t, t.height, key) : null;
+            Sprites[key] = s;
+            return s;
+        }
         public static AudioClip Clip(string name) { AudioClip c; return name != null && Sounds.TryGetValue(name, out c) ? c : null; }
 
         // ------------------------------------------------------------------ texture makers
