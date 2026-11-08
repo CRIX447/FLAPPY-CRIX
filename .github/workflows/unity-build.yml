@@ -1,0 +1,154 @@
+# Builds the Unity version of Flappy Crix (unity/) on GitHub's machines and attaches the
+# downloads to a DRAFT release: Windows, Mac, Linux and Android (APK).
+# Run it from the Actions tab ("Build Unity game" > "Run workflow"), then check the draft under
+# Releases and press Publish. Nobody gets anything until then.
+#
+# It needs your Unity account once (Settings > Secrets and variables > Actions > New secret):
+#   UNITY_EMAIL     the email you sign in to Unity with
+#   UNITY_PASSWORD  its password
+#   UNITY_LICENSE   the text inside your Unity licence file (Unity_lic.ulf), see unity/README.md
+# These stay secret: GitHub never shows them again, not even in the logs.
+name: Build Unity game
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Which builds (all, or e.g. windows,android)"
+        default: "all"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            target: StandaloneWindows64
+            file: FlappyCrix.exe
+          - name: linux
+            target: StandaloneLinux64
+            file: FlappyCrix.x86_64
+          - name: mac
+            target: StandaloneOSX
+            file: FlappyCrix.app
+          - name: android
+            target: Android
+            file: FlappyCrix.apk
+    steps:
+      - name: Skip if not asked for
+        id: want
+        shell: bash
+        run: |
+          p="${{ github.event.inputs.platforms }}"
+          if [ -z "$p" ] || [ "$p" = "all" ] || echo ",$p," | grep -qi ",${{ matrix.name }},"; then echo "go=yes" >> "$GITHUB_OUTPUT"; else echo "go=no" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Check the Unity secrets are there
+        if: steps.want.outputs.go == 'yes'
+        shell: bash
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          missing=""
+          [ -z "$UNITY_EMAIL" ] && missing="$missing UNITY_EMAIL"
+          [ -z "$UNITY_PASSWORD" ] && missing="$missing UNITY_PASSWORD"
+          [ -z "$UNITY_LICENSE" ] && missing="$missing UNITY_LICENSE"
+          if [ -n "$missing" ]; then echo "::error::Add these repository secrets first:$missing (see unity/README.md, 'Build it on GitHub')"; exit 1; fi
+
+      - name: Make room (Unity and Android are big)
+        if: steps.want.outputs.go == 'yes'
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: ${{ matrix.name != 'android' }}
+
+      - uses: actions/checkout@v4
+        if: steps.want.outputs.go == 'yes'
+        with:
+          lfs: true
+
+      - uses: actions/cache@v4
+        if: steps.want.outputs.go == 'yes'
+        with:
+          path: unity/Library
+          key: Library-${{ matrix.target }}-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          restore-keys: Library-${{ matrix.target }}-
+
+      - name: Build with Unity
+        if: steps.want.outputs.go == 'yes'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: unity
+          targetPlatform: ${{ matrix.target }}
+          buildName: FlappyCrix
+          buildMethod: FlappyCrix.EditorTools.ProjectSetup.CiBuild
+          versioning: None
+
+      - name: Pack it
+        if: steps.want.outputs.go == 'yes'
+        shell: bash
+        run: |
+          sudo chown -R "$(id -u)" build || true
+          mkdir -p out
+          cd "build/${{ matrix.target }}"
+          ls -la
+          if [ "${{ matrix.name }}" = "android" ]; then
+            cp FlappyCrix.apk "../../out/FlappyCrix-Android.apk"
+          else
+            zip -qr "../../out/FlappyCrix-${{ matrix.name }}.zip" .
+          fi
+          ls -la ../../out
+
+      - uses: actions/upload-artifact@v4
+        if: steps.want.outputs.go == 'yes'
+        with:
+          name: FlappyCrix-${{ matrix.name }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    needs: build
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: What got built
+        shell: bash
+        run: ls -la out || true
+
+      - name: Attach to a draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: unity-v2.1.0-build${{ github.run_number }}
+          name: Flappy Crix (Unity) 2.1.0 - build ${{ github.run_number }}
+          files: out/*
+          fail_on_unmatched_files: false
+          body: |
+            ### Flappy Crix - Unity version (CRIX STUDIOS)
+            - **Windows**: unzip `FlappyCrix-windows.zip`, run `FlappyCrix.exe`
+            - **Mac**: unzip `FlappyCrix-mac.zip`, open `FlappyCrix.app` (right-click > Open the first time: it isn't notarised)
+            - **Linux**: unzip `FlappyCrix-linux.zip`, run `FlappyCrix.x86_64`
+            - **Android**: install `FlappyCrix-Android.apk` (allow installing from this source)
+
+            Fullscreen by default (F11 / Alt+Enter for a window). Online with website players, the shop, daily rewards and awards.
+            Windows will say "Windows protected your PC" because it isn't code-signed: More info > Run anyway.
+
+            Inspired by Flappy Bird by Dong Nguyen. Not affiliated with or endorsed by Dong Nguyen or .Gears.

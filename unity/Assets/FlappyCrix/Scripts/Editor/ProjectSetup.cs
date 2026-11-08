@@ -117,6 +117,38 @@ namespace FlappyCrix.EditorTools
             if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorUtility.RevealInFinder(path);
         }
 
+        /// <summary>
+        /// For GitHub Actions (GameCI unity-builder, buildMethod): sets the project up, then builds the
+        /// target in -buildTarget to the file in -customBuildPath. Exits with 1 if the build fails.
+        /// </summary>
+        public static void CiBuild()
+        {
+            Run();
+            string[] args = System.Environment.GetCommandLineArgs();
+            string path = Arg(args, "-customBuildPath"), targetName = Arg(args, "-buildTarget");
+            BuildTarget target;
+            try { target = (BuildTarget)System.Enum.Parse(typeof(BuildTarget), targetName ?? "StandaloneWindows64"); }
+            catch (System.Exception) { Debug.LogError("[Flappy Crix] Unknown build target " + targetName); EditorApplication.Exit(1); return; }
+            if (string.IsNullOrEmpty(path)) path = Path.Combine("Builds", target.ToString(), "FlappyCrix");
+            if (target == BuildTarget.Android) EditorUserBuildSettings.buildAppBundle = false;
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = path,
+                target = target,
+                options = BuildOptions.None,
+            });
+            Debug.Log("[Flappy Crix] CI build " + target + ": " + report.summary.result + " -> " + path);
+            if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
+        }
+
+        static string Arg(string[] args, string name)
+        {
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == name) return args[i + 1];
+            return null;
+        }
+
         [MenuItem("Flappy Crix/Open Save Folder", false, 40)]
         static void OpenSaves() { EditorUtility.RevealInFinder(Application.persistentDataPath); }
     }
