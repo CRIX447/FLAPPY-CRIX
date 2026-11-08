@@ -16,7 +16,7 @@ If something looks wrong after an update: **Flappy Crix → Set Up Project**.
 
 ## Build it
 
-**Flappy Crix → Build → Windows / Mac / Linux / Android (APK) / iOS (Xcode project).**
+**Flappy Crix → Build → Windows / Mac / Linux / Android (APK) / iOS (Xcode project) / Web (WebGL).**
 The finished game appears in `unity/Builds/…` and its folder opens. (Mac and iOS builds need a Mac.)
 
 ## Build it on GitHub (no Unity needed on your PC)
@@ -40,7 +40,11 @@ It needs your free Unity account, once:
 3. **Build:** *Actions → Build Unity game → Run workflow* (leave "all", or type e.g. `windows,android`).
    The first build takes about 30-60 minutes; later ones are faster.
 4. **Download:** *Releases* → the new **draft** → `FlappyCrix-windows.zip`, `FlappyCrix-mac.zip`,
-   `FlappyCrix-linux.zip`, `FlappyCrix-Android.apk`. Press **Publish** when you're happy to share it.
+   `FlappyCrix-linux.zip`, `FlappyCrix-Android.apk`, `FlappyCrix-webgl.zip`. Press **Publish** when you're happy to share it.
+   Once it's published, the **Flappy Crix launcher** (the Windows app) offers it to everyone as an update.
+5. **Web version (HD):** turn on *Settings → Pages → Source: GitHub Actions* once, and every build also
+   puts the browser version online at your GitHub Pages address. It plays solo; online stays in the main
+   web game for now (browsers don't allow the network connections the online code uses).
 
 If a build goes red, open the run, click the red job and copy the error to Claude.
 
@@ -51,7 +55,7 @@ If a build goes red, open the run, click the red job and copy the error to Claud
 | Boot | Your CRIX STUDIOS screen instead of Unity's (Unity's own splash is switched off) |
 | Loading | A real loading screen: progress bar, what's loading, tips |
 | Title | Giant glitchy FLAPPY CRIX logo over the game playing itself, PRESS ANY BUTTON |
-| Main menu | Big slanted buttons (PLAY, PLAY ONLINE, SETTINGS, CREDITS, QUIT) with your level, XP, best, coins and games on the right |
+| Main menu | Laid out like the website: the menu card in the middle, you on the left, score and controls on the right. Its own layout for computers, phones held sideways and phones held upright |
 | The game | The website's exact rules (60 ticks a second), drawn with sprites: night sky, three layers of city, neon pipes, spinning coins, glowing bird and trail, particles on flaps, coins and crashes, screen shake |
 | Screen effects | Glow (bloom), colour split, glitch, vignette, scanlines and film grain. Settings → Effects: High / Low / Off |
 | Wider screens | You see further ahead instead of black bars; tall phones see more sky |

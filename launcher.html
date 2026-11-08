@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'">
+<title>Flappy Crix</title>
+<style>
+@font-face { font-family: 'CrixCustom'; src: url('launcher-font.woff2') format('woff2'); }
+:root { --red:#FF4655; --orange:#FF6B35; --green:#00CC7A; --gold:#FFD700; --ink:#0A0A0F; --dim:#A6A6B2; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--ink); color: #EDEDED; font: 14px/1.5 'CrixCustom', system-ui, sans-serif;
+  background-image: linear-gradient(rgba(255,70,85,.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,70,85,.05) 1px, transparent 1px);
+  background-size: 48px 48px; overflow: hidden; user-select: none;
+}
+.app { height: 100%; display: grid; grid-template-columns: minmax(320px, 1fr) minmax(300px, 380px); gap: 22px; padding: 26px; }
+.card { background: rgba(9,9,13,.94); border: 3px solid var(--red); border-radius: 26px;
+        box-shadow: 0 7px 0 rgba(140,20,35,.9); position: relative; }
+.main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; gap: 14px; text-align: center; }
+.logo { width: min(250px, 42vh); aspect-ratio: 1; border-radius: 22px; border: 3px solid var(--orange);
+        box-shadow: 0 6px 0 rgba(120,30,10,.9); object-fit: cover; }
+h1 { font-size: 40px; letter-spacing: 1px; line-height: 1; }
+h1 span { color: var(--orange); }
+.tag { color: var(--green); font-size: 12px; letter-spacing: 4px; }
+.btn { font: inherit; border: 0; cursor: pointer; color: #fff; border-radius: 40px; transition: transform .08s, filter .08s; }
+.btn:hover { filter: brightness(1.08); transform: translateY(-2px); }
+.btn:active { transform: translateY(3px); }
+.btn:disabled { filter: grayscale(.7) brightness(.7); cursor: default; transform: none; }
+.play { width: min(420px, 100%); padding: 16px 20px; font-size: 30px; letter-spacing: 1px;
+        background: linear-gradient(90deg, var(--red), var(--orange)); box-shadow: 0 6px 0 #9e1a29; }
+.web { width: min(420px, 100%); padding: 11px 18px; font-size: 17px; background: #10301f;
+       border: 2px solid rgba(0,204,122,.55); color: var(--green); box-shadow: 0 5px 0 #062a17; }
+.status { min-height: 22px; color: var(--dim); font-size: 13px; }
+.status.bad { color: var(--red); }
+.bar { width: min(420px, 100%); height: 10px; background: rgba(255,255,255,.08); border-radius: 6px; overflow: hidden; display: none; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--red), var(--orange)); border-radius: 6px; transition: width .2s; }
+.small { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+.pill { font: inherit; font-size: 12px; padding: 7px 14px; border-radius: 20px; cursor: pointer; color: var(--dim);
+        background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); }
+.pill:hover { color: #fff; border-color: var(--orange); }
+.side { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.news { flex: 1; padding: 20px; overflow: auto; min-height: 0; border-color: rgba(255,107,53,.6); box-shadow: 0 6px 0 rgba(90,30,10,.9); }
+.news h2, .info h2 { font-size: 13px; letter-spacing: 2px; color: var(--dim); font-weight: normal; margin-bottom: 10px; }
+.rel { margin-bottom: 16px; }
+.rel b { color: var(--orange); font-weight: normal; font-size: 17px; }
+.rel small { color: var(--dim); margin-left: 6px; }
+.rel ul { padding-left: 18px; margin-top: 4px; color: #CFCFD6; font-size: 13px; }
+.info { padding: 16px 20px; border-color: rgba(255,255,255,.12); box-shadow: 0 5px 0 rgba(0,0,0,.6); }
+.row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+.row span:first-child { color: var(--green); }
+.bird { position: absolute; width: 64px; right: 24px; top: 20px; animation: bob 2.4s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-10px) rotate(-6deg); } }
+@media (max-height: 640px) { .logo { width: 150px; } .main { gap: 10px; padding: 18px; } .play { padding: 11px 18px; font-size: 24px; } }
+@media (max-width: 760px) { .app { grid-template-columns: 1fr; overflow: auto; } .side { display: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="card main">
+    <img class="bird" src="launcher-bird.png" alt="">
+    <img class="logo" src="launcher-logo.png" alt="Flappy Crix">
+    <div class="tag">TAP · COLLECT · DRIP</div>
+    <button class="btn play" id="play" disabled>▶ PLAY</button>
+    <div class="bar" id="bar"><i id="fill"></i></div>
+    <div class="status" id="status">Checking for the game…</div>
+    <button class="btn web" id="web">🌐 PLAY THE WEB VERSION</button>
+    <div class="small">
+      <button class="pill" id="folder">📁 Game files</button>
+      <button class="pill" id="discord">💬 Discord</button>
+      <button class="pill" id="site">🌍 CRIXGAMING VR</button>
+      <button class="pill" id="uninstall">🗑 Uninstall game</button>
+    </div>
+  </section>
+  <aside class="side">
+    <section class="card news" id="news"><h2>WHAT'S NEW</h2><div id="newsBody" class="status">Loading…</div></section>
+    <section class="card info">
+      <h2>THIS PC</h2>
+      <div class="row"><span>GAME</span><span id="have">–</span></div>
+      <div class="row"><span>NEWEST</span><span id="newest">–</span></div>
+      <div class="row"><span>LAUNCHER</span><span id="launcher">–</span></div>
+    </section>
+  </aside>
+</div>
+<script>
+(function () {
+  const L = window.CRIX_LAUNCHER;
+  const $ = id => document.getElementById(id);
+  let st = null, working = false;
+
+  function say(text, bad) { $('status').textContent = text; $('status').className = 'status' + (bad ? ' bad' : ''); }
+  function mb(n) { return n ? (n / 1048576).toFixed(n > 104857600 ? 0 : 1) + ' MB' : ''; }
+
+  async function refresh() {
+    st = await L.status();
+    $('have').textContent = st.installed || 'not installed';
+    $('newest').textContent = st.latest || (st.error ? 'offline' : 'none yet');
+    const p = $('play');
+    p.disabled = working || st.running;
+    if (!st.supported) { p.disabled = true; p.textContent = '▶ PLAY'; say('Use the web version on this computer.'); return; }
+    if (st.running) { p.textContent = '● PLAYING'; say('The game is running. Have fun!'); return; }
+    if (!st.installed) {
+      p.textContent = st.latest ? '⬇ INSTALL' : '▶ PLAY';
+      p.disabled = working || !st.latest;
+      say(st.latest ? 'Install the game (' + mb(st.size) + '). It updates itself after that.'
+                    : st.error ? "Can't reach GitHub right now. The web version still works." : 'The game is coming soon! Try the web version meanwhile.', !!st.error);
+    } else if (st.update) {
+      p.textContent = '⬇ UPDATE';
+      say('A new version is out (' + st.latestName + ').');
+    } else {
+      p.textContent = '▶ PLAY';
+      say('Ready to play.');
+    }
+  }
+
+  L.onProgress(pr => {
+    $('bar').style.display = pr.p < 1 ? 'block' : 'none';
+    $('fill').style.width = Math.round(pr.p * 100) + '%';
+    say(pr.step + (pr.size ? '  ' + mb(pr.got) + ' / ' + mb(pr.size) : ''));
+  });
+  L.onGame(g => {
+    if (g.state === 'exited') { say(g.error ? 'The game closed: ' + g.error : 'Thanks for playing!', !!g.error); refresh(); }
+  });
+
+  $('play').onclick = async () => {
+    if (!st || working) return;
+    if (!st.installed || st.update) {
+      working = true; $('play').disabled = true;
+      try { await L.install(); await refresh(); }
+      catch (e) { say(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), true); }
+      finally { working = false; $('bar').style.display = 'none'; refresh(); }
+      return;
+    }
+    try { await L.play(); refresh(); }
+    catch (e) { say(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), true); }
+  };
+  $('web').onclick = () => L.playWeb();
+  $('folder').onclick = () => L.folder();
+  $('discord').onclick = () => L.link('discord');
+  $('site').onclick = () => L.link('site');
+  $('uninstall').onclick = async () => {
+    if (!st || !st.installed) { say('The game is not installed.'); return; }
+    if (!confirm('Remove the installed game? Your progress is kept (it is saved separately).')) return;
+    try { await L.uninstall(); say('Removed.'); } catch (e) { say(String(e.message || e), true); }
+    refresh();
+  };
+
+  try { $('launcher').textContent = L.version(); } catch (e) { }
+
+  L.news().then(list => {
+    const box = $('newsBody');
+    box.className = '';
+    if (!list || !list.length) { box.textContent = 'No news right now.'; return; }
+    box.textContent = '';
+    for (const r of list) {
+      const d = document.createElement('div'); d.className = 'rel';
+      const b = document.createElement('b'); b.textContent = r.version + (r.title ? ' · ' + r.title : '');
+      const s = document.createElement('small'); s.textContent = r.date || '';
+      const ul = document.createElement('ul');
+      for (const c of (r.changes || []).slice(0, 6)) { const li = document.createElement('li'); li.textContent = c; ul.appendChild(li); }
+      d.append(b, s, ul); box.appendChild(d);
+    }
+  }).catch(() => { $('newsBody').textContent = 'No news right now.'; });
+
+  refresh();
+  setInterval(() => { if (!working) refresh(); }, 5 * 60 * 1000);
+})();
+</script>
+</body>
+</html>

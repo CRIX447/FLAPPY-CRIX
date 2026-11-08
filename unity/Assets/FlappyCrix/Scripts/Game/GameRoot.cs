@@ -75,7 +75,8 @@ namespace FlappyCrix
             cam.allowMSAA = false;
             camGo.AddComponent<AudioListener>();
             camGo.AddComponent<PostFx>();
-            camGo.AddComponent<ClipRecorder>();
+            // clips need FFmpeg on the computer; the browser version has none
+            if (Application.platform != RuntimePlatform.WebGLPlayer) camGo.AddComponent<ClipRecorder>();
             Sfx.Create(gameObject);
 
             canvas = Ui.MakeCanvas(transform, cam, out scaler);
@@ -128,6 +129,9 @@ namespace FlappyCrix
 
             loading.SetProgress(0.9f, "Connecting");
             yield return null;
+            // The browser (WebGL) version has no raw network sockets or background threads, which the
+            // online code uses, so it plays solo for now; online is in the main web game.
+            if (Application.platform != RuntimePlatform.WebGLPlayer)
             try
             {
                 online = new OnlineHub(data, world.Sim, progress);
@@ -225,7 +229,11 @@ namespace FlappyCrix
 
         void OpenOnline()
         {
-            if (online == null) { toasts.Show("ONLINE ISN'T AVAILABLE RIGHT NOW", Ui.Red); return; }
+            if (online == null)
+            {
+                toasts.Show(Application.platform == RuntimePlatform.WebGLPlayer ? "ONLINE IS IN THE MAIN WEB GAME: FLAPPYCRIX.VERCEL.APP" : "ONLINE ISN'T AVAILABLE RIGHT NOW", Ui.Orange);
+                return;
+            }
             menu.Hide();
             state = State.Online;
             lobby.Show();

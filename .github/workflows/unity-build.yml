@@ -1,5 +1,7 @@
 # Builds the Unity version of Flappy Crix (unity/) on GitHub's machines and attaches the
-# downloads to a DRAFT release: Windows, Mac, Linux and Android (APK).
+# downloads to a DRAFT release: Windows, Mac, Linux, Android (APK) and Web (WebGL, "HD").
+# The web build is also put on GitHub Pages when Pages is switched on for this repository
+# (Settings > Pages > Source: GitHub Actions); the launcher installs the Windows one.
 # Run it from the Actions tab ("Build Unity game" > "Run workflow"), then check the draft under
 # Releases and press Publish. Nobody gets anything until then.
 #
@@ -41,6 +43,9 @@ jobs:
           - name: android
             target: Android
             file: FlappyCrix.apk
+          - name: webgl
+            target: WebGL
+            file: index.html
     steps:
       - name: Skip if not asked for
         id: want
@@ -118,6 +123,30 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+      - name: Get the web build ready for GitHub Pages
+        if: steps.want.outputs.go == 'yes' && matrix.name == 'webgl'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/WebGL/FlappyCrix
+
+  pages:
+    name: Put the web build on GitHub Pages
+    needs: build
+    if: always() && !cancelled() && (github.event.inputs.platforms == '' || github.event.inputs.platforms == 'all' || contains(github.event.inputs.platforms, 'webgl'))
+    runs-on: ubuntu-latest
+    # if Pages isn't switched on for the repository this step fails on its own, without
+    # stopping the release
+    continue-on-error: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
   release:
     name: Draft release
     needs: build
@@ -147,6 +176,8 @@ jobs:
             - **Mac**: unzip `FlappyCrix-mac.zip`, open `FlappyCrix.app` (right-click > Open the first time: it isn't notarised)
             - **Linux**: unzip `FlappyCrix-linux.zip`, run `FlappyCrix.x86_64`
             - **Android**: install `FlappyCrix-Android.apk` (allow installing from this source)
+            - **Web (HD)**: `FlappyCrix-webgl.zip` is the browser version (also on GitHub Pages if it's switched on). Solo play; online is in the main web game.
+            - **Easiest on Windows**: the Flappy Crix launcher installs and updates the game for you once this release is published.
 
             Fullscreen by default (F11 / Alt+Enter for a window). Online with website players, the shop, daily rewards and awards.
             Windows will say "Windows protected your PC" because it isn't code-signed: More info > Run anyway.

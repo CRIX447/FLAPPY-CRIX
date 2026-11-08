@@ -1,15 +1,17 @@
 /**
- * Flappy Crix — desktop
+ * Flappy Crix — desktop launcher
  *
- * Loads the live site, so pushing to the website updates every installed copy
- * on next launch. No rebuild, no reinstall, and crossplay works because it is
- * literally the same game.
+ * Opens the launcher (launcher.html): PLAY installs, updates and starts the
+ * Unity version of the game (launcher.js), and PLAY THE WEB VERSION opens the
+ * live website game in its own window, as the app always did — pushing to the
+ * website still updates that on next launch.
  */
 
 const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
+const Launcher = require('./launcher');
 
 /* A copy someone downloaded will not start with a debugger or a remote
    control port switched on. Either would let another program drive the game
@@ -205,6 +207,83 @@ const AUTH_POPUP = {
 };
 
 let win = null;
+let launcherWin = null;
+
+/* ---------- LAUNCHER ----------
+   The first window. Its page can only ask for the named things below, and
+   only the launcher page itself may ask. */
+const LAUNCHER_FILE = path.join(__dirname, 'launcher.html');
+const LINKS = { discord: 'https://discord.com/invite/MbQvJGDAst', site: 'https://crixgamingvr.com' };
+
+function fromLauncher(e) {
+    return launcherWin && !launcherWin.isDestroyed() && e.sender === launcherWin.webContents;
+}
+function toLauncher(channel, data) {
+    if (launcherWin && !launcherWin.isDestroyed()) launcherWin.webContents.send(channel, data);
+}
+
+function createLauncher() {
+    launcherWin = new BrowserWindow({
+        width: 1100, height: 700, minWidth: 760, minHeight: 560,
+        backgroundColor: '#0A0A0F',
+        title: 'Flappy Crix',
+        icon: path.join(__dirname, 'icon.ico'),
+        autoHideMenuBar: true,
+        show: false,
+        webPreferences: {
+            preload: path.join(__dirname, 'launcher-preload.js'),
+            contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: DEV_TOOLS
+        }
+    });
+    launcherWin.loadFile(LAUNCHER_FILE);
+    launcherWin.on('page-title-updated', e => e.preventDefault());
+    launcherWin.once('ready-to-show', () => launcherWin.show());
+    setTimeout(() => { if (launcherWin && !launcherWin.isDestroyed() && !launcherWin.isVisible()) launcherWin.show(); }, 4000);
+    // the launcher page never goes anywhere else
+    launcherWin.webContents.on('will-navigate', e => e.preventDefault());
+    launcherWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    launcherWin.on('closed', () => { launcherWin = null; });
+}
+
+function openWebVersion() {
+    if (win) { if (win.isMinimized()) win.restore(); win.focus(); return; }
+    createWindow();
+}
+
+ipcMain.handle('launcher:status', e => fromLauncher(e) ? Launcher.status() : null);
+ipcMain.handle('launcher:install', async e => {
+    if (!fromLauncher(e)) return null;
+    return Launcher.install(p => toLauncher('launcher:progress', p));
+});
+ipcMain.handle('launcher:cancel', e => { if (fromLauncher(e)) Launcher.cancel(); });
+ipcMain.handle('launcher:play', e => {
+    if (!fromLauncher(e)) return;
+    Launcher.play((code, error) => {
+        toLauncher('launcher:game', { state: 'exited', code, error: error || null });
+        if (launcherWin && !launcherWin.isDestroyed()) { if (launcherWin.isMinimized()) launcherWin.restore(); launcherWin.focus(); }
+    });
+    // out of the way while playing; it comes back when the game closes
+    if (launcherWin) launcherWin.minimize();
+    toLauncher('launcher:game', { state: 'running' });
+});
+ipcMain.handle('launcher:web', e => { if (fromLauncher(e)) openWebVersion(); });
+ipcMain.handle('launcher:uninstall', e => { if (fromLauncher(e)) Launcher.uninstall(); });
+ipcMain.handle('launcher:folder', e => { if (fromLauncher(e)) Launcher.openFolder(); });
+ipcMain.handle('launcher:link', (e, which) => { if (fromLauncher(e) && LINKS[which]) openExternalSafe(LINKS[which]); });
+ipcMain.handle('launcher:news', async e => {
+    if (!fromLauncher(e)) return [];
+    try {
+        const r = await net.fetch(SITE + '/patchnotes.json', { cache: 'no-store' });
+        if (!r.ok) return [];
+        const j = await r.json();
+        // only plain text goes back to the page
+        return (Array.isArray(j.releases) ? j.releases : []).slice(0, 4).map(x => ({
+            version: String(x.version || '').slice(0, 20), date: String(x.date || '').slice(0, 20),
+            title: String(x.title || '').slice(0, 80),
+            changes: (Array.isArray(x.changes) ? x.changes : []).slice(0, 8).map(c => String(c).slice(0, 200))
+        }));
+    } catch (err) { return []; }
+});
 
 function loadGame() {
     if (win) win.loadURL(GAME_URL);
@@ -303,6 +382,8 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
         label: 'Game',
         submenu: [
+            { label: 'Launcher', click: () => { if (launcherWin) { launcherWin.restore(); launcherWin.focus(); } else createLauncher(); } },
+            { label: 'Web version', click: openWebVersion },
             { label: 'Reload', accelerator: 'F5', click: loadGame },
             { label: 'Fullscreen', accelerator: 'F11',
               click: () => win?.setFullScreen(!win.isFullScreen()) },
@@ -346,11 +427,13 @@ if (!app.requestSingleInstanceLock()) {
     app.quit();
 } else {
     app.on('second-instance', () => {
-        if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+        const w = launcherWin || win;
+        if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
+        else createLauncher();
     });
     app.whenReady().then(() => {
         setupPermissions(session.defaultSession);
-        createWindow();
+        createLauncher();
         smokeTest();
         setupUpdates();
         watchGameVersion();     // 1.0.0 started this twice
@@ -425,18 +508,22 @@ function setupUpdates() {
    loaded there and quits. Nothing happens unless that is set. */
 function smokeTest() {
     const out = process.env.CRIX_SMOKE_TEST;
-    if (!out || !win) return;
+    if (!out || !launcherWin) return;
     const finish = (ok, url) => {
         try { fs.writeFileSync(out, JSON.stringify({ ok, url, version: app.getVersion(),
               electron: process.versions.electron, devTools: DEV_TOOLS })); } catch (e) {}
         app.exit(ok ? 0 : 3);
     };
-    win.webContents.on('did-finish-load', () => {
-        const url = win.webContents.getURL();
-        if (isGameUrl(url) || isOfflinePage(url)) setTimeout(() => finish(true, url), 1500);
+    // the launcher must open, and the web version must load the game (or its offline page)
+    launcherWin.webContents.once('did-finish-load', () => {
+        openWebVersion();
+        win.webContents.on('did-finish-load', () => {
+            const url = win.webContents.getURL();
+            if (isGameUrl(url) || isOfflinePage(url)) setTimeout(() => finish(true, url), 1500);
+        });
     });
     setTimeout(() => finish(false, win ? win.webContents.getURL() : ''), 90000);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (!win) createWindow(); });
+app.on('activate', () => { if (!win && !launcherWin) createLauncher(); });

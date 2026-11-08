@@ -1,7 +1,7 @@
 {
   "name": "flappy-crix",
-  "version": "1.3.0",
-  "description": "Flappy Crix — CRIX STUDIOS",
+  "version": "2.0.0",
+  "description": "Flappy Crix launcher \u2014 CRIX STUDIOS",
   "main": "main.js",
   "author": {
     "name": "CRIX STUDIOS",
@@ -30,7 +30,13 @@
       "preload.js",
       "offline.html",
       "icon.ico",
-      "package.json"
+      "package.json",
+      "launcher.js",
+      "launcher.html",
+      "launcher-preload.js",
+      "launcher-logo.png",
+      "launcher-bird.png",
+      "launcher-font.woff2"
     ],
     "electronFuses": {
       "runAsNode": false,
@@ -73,7 +79,7 @@
     "portable": {
       "artifactName": "FlappyCrix.exe"
     },
-    "copyright": "© CRIX STUDIOS",
+    "copyright": "\u00a9 CRIX STUDIOS",
     "publish": [
       {
         "provider": "github",

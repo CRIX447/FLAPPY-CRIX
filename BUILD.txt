@@ -2,7 +2,8 @@ FLAPPY CRIX — DESKTOP
 =====================
 CRIX STUDIOS
 
-One app. No launcher, no second download.
+One app: the Flappy Crix launcher. It installs and updates the Unity game (PLAY)
+and still opens the web game in its own window (PLAY THE WEB VERSION).
 
 
 WHAT YOU NEED

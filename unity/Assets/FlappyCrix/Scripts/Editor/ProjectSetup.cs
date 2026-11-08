@@ -86,6 +86,14 @@ namespace FlappyCrix.EditorTools
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.Android.forceInternetPermission = true;      // online play
 
+            // the browser build: small gzip files that work on any web host (no special server settings),
+            // cached by the browser after the first visit, shown in our own full-window page
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            PlayerSettings.WebGL.decompressionFallback = true;
+            PlayerSettings.WebGL.nameFilesAsHashes = true;
+            PlayerSettings.WebGL.dataCaching = true;
+            PlayerSettings.WebGL.template = "PROJECT:FlappyCrix";
+
             var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
             if (icon != null) PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { icon }, IconKind.Any);
 
@@ -100,6 +108,7 @@ namespace FlappyCrix.EditorTools
         [MenuItem("Flappy Crix/Build/Linux", false, 22)] static void BuildLinux() { Build(BuildTarget.StandaloneLinux64, "Linux/FlappyCrix.x86_64"); }
         [MenuItem("Flappy Crix/Build/Android (APK)", false, 23)] static void BuildAndroid() { Build(BuildTarget.Android, "Android/FlappyCrix.apk"); }
         [MenuItem("Flappy Crix/Build/iOS (Xcode project)", false, 24)] static void BuildIos() { Build(BuildTarget.iOS, "iOS"); }
+        [MenuItem("Flappy Crix/Build/Web (WebGL)", false, 25)] static void BuildWeb() { Build(BuildTarget.WebGL, "Web"); }
 
         static void Build(BuildTarget target, string output)
         {
