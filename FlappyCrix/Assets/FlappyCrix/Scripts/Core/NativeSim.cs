@@ -47,6 +47,8 @@ namespace FlappyCrix.Native
         public readonly List<Coin> CoinList = new List<Coin>();
         public readonly List<Pumpkin> Pumpkins = new List<Pumpkin>();
         public readonly List<float> Trail = new List<float>();    // x, y pairs, oldest first
+        /// <summary>How many trail points there have ever been (keeps a trail's sparks on their point).</summary>
+        public long TrailSeq { get; private set; }
 
         /// <summary>Halloween lane props (pumpkins, cobwebs): set from the active season.</summary>
         public bool Halloween;
@@ -295,7 +297,7 @@ namespace FlappyCrix.Native
             Travelled += Speed;
             Ticks++;
             for (int i = 0; i < Trail.Count; i += 2) Trail[i] -= Speed;
-            Trail.Add(BirdX); Trail.Add(BirdY);
+            Trail.Add(BirdX); Trail.Add(BirdY); TrailSeq++;
             while (Trail.Count > TrailPoints * 2) Trail.RemoveRange(0, 2);
 
             // 2. grace (counts as a shield)

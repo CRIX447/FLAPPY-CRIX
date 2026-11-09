@@ -55,23 +55,8 @@ namespace FlappyCrix
             {
                 shownTrail = trailId;
                 var c = Catalog.CosmeticById(trailId);
-                var g = new Gradient();
                 HasTrail = c != null && c.Colours != null && c.Colours.Length > 0;
-                if (HasTrail)
-                {
-                    int n = Mathf.Min(8, c.Colours.Length);
-                    var keys = new GradientColorKey[n];
-                    for (int i = 0; i < n; i++) keys[i] = new GradientColorKey(Res.C(c.Colours[n - 1 - i]), n == 1 ? 0 : i / (float)(n - 1));
-                    g.SetKeys(keys, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(0.9f, 1) });
-                    trail.widthCurve = new AnimationCurve(new Keyframe(0, 0f), new Keyframe(1, 0.22f));
-                }
-                else
-                {
-                    g.SetKeys(new[] { new GradientColorKey(accent, 0), new GradientColorKey(Color.Lerp(accent, Color.yellow, 0.5f), 1) },
-                              new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(0.75f, 1) });
-                    trail.widthCurve = new AnimationCurve(new Keyframe(0, 0f), new Keyframe(1, 0.16f));
-                }
-                trail.colorGradient = g;
+                trailItem = HasTrail ? c : null;
             }
         }
 

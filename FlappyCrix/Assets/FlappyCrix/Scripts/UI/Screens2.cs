@@ -63,15 +63,21 @@ namespace FlappyCrix
         string tab = "powerups";
         readonly Dictionary<string, Button> tabs = new Dictionary<string, Button>();
 
-        public ShopScreen(Transform canvas, Progress progress, Func<NativeSim> sim) : base(canvas, "SHOP")
+        // the STORE sells things; the LOCKER (wardrobe) is where you wear what you own, like the website
+        readonly bool locker;
+
+        public ShopScreen(Transform canvas, Progress progress, Func<NativeSim> sim, bool locker = false) : base(canvas, locker ? "LOCKER" : "STORE")
         {
-            this.progress = progress; this.sim = sim;
+            this.progress = progress; this.sim = sim; this.locker = locker;
+            if (locker) tab = "hat";
             var tabRow = Ui.Rect(Content, "Tabs");
             tabRow.anchorMin = new Vector2(0, 1); tabRow.anchorMax = new Vector2(1, 1); tabRow.pivot = new Vector2(0.5f, 1);
             tabRow.sizeDelta = new Vector2(0, 70); tabRow.anchoredPosition = Vector2.zero;
             var h = tabRow.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.spacing = 14; h.childAlignment = TextAnchor.MiddleLeft; h.childControlWidth = false; h.childControlHeight = false; h.childForceExpandWidth = false;
-            foreach (var pair in new[] { new[] { "powerups", "POWER-UPS" }, new[] { "hat", "HATS" }, new[] { "trail", "TRAILS" } })
+            var tabList = locker ? new[] { new[] { "hat", "HATS" }, new[] { "trail", "TRAILS" } }
+                                 : new[] { new[] { "powerups", "POWER-UPS" }, new[] { "hat", "HATS" }, new[] { "trail", "TRAILS" } };
+            foreach (var pair in tabList)
             {
                 string id = pair[0];
                 tabs[id] = Ui.SmallButton(tabRow, pair[1], () => { tab = id; Rebuild(); }, new Color(1, 1, 1, 0.1f), 260, 64);
@@ -101,18 +107,42 @@ namespace FlappyCrix
                     if (first == null) first = b;
                 }
             }
-            else
+            else if (!locker)
             {
+                // the store: only what's for sale. Event prizes come from the calendars and live in the locker
                 foreach (var c in Catalog.OfType(tab))
                 {
+                    if (c.Price <= 0) continue;
                     var cc = c;
-                    bool owned = progress.Save.Owned.Contains(c.Id), wearing = progress.Wearing(c);
-                    string price = wearing ? "WEARING" : owned ? "WEAR" : c.Price > 0 ? Catalog.FormatCoins(c.Price) : "EVENT";
-                    Color col = wearing ? Ui.Green : owned ? Ui.Orange : c.Price > 0 ? Ui.Red : new Color(0.3f, 0.3f, 0.35f);
-                    string desc = owned ? (wearing ? "Tap to take it off" : "Yours") : c.Price > 0 ? "Buy it with coins" : (c.Source ?? "Event prize");
+                    bool owned = progress.Save.Owned.Contains(c.Id);
                     Sprite icon = c.Image != null ? Res.Get(c.Image) : null;
-                    var b = Item(icon, c.Name, desc, price, col, () => progress.BuyOrEquip(cc), owned || c.Price > 0, c.Type == "trail" ? c.Colours : null);
+                    var b = Item(icon, c.Name, owned ? "Yours: wear it in the LOCKER" : "Buy it with coins", owned ? "OWNED" : Catalog.FormatCoins(c.Price),
+                                 owned ? Ui.Green : Ui.Red, () => progress.BuyOrEquip(cc), !owned, c.Type == "trail" ? c.Colours : null);
                     if (first == null) first = b;
+                }
+            }
+            else
+            {
+                // the locker: everything you own, ready to wear; event items you haven't won show where they come from
+                bool wearingNone = tab == "hat" ? string.IsNullOrEmpty(progress.Save.Hat) : string.IsNullOrEmpty(progress.Save.Trail);
+                var none = Item(null, tab == "hat" ? "NO HAT" : "NO TRAIL", "Just the bird", wearingNone ? "WEARING" : "WEAR",
+                                wearingNone ? Ui.Green : Ui.Orange, () => progress.TakeOff(tab), !wearingNone, null);
+                first = none;
+                var owned = new List<Catalog.Cosmetic>(); var locked = new List<Catalog.Cosmetic>();
+                foreach (var c in Catalog.OfType(tab)) (progress.Save.Owned.Contains(c.Id) ? owned : locked).Add(c);
+                foreach (var c in owned)
+                {
+                    var cc = c;
+                    bool wearing = progress.Wearing(c);
+                    Sprite icon = c.Image != null ? Res.Get(c.Image) : null;
+                    Item(icon, c.Name, wearing ? "Tap to take it off" : "Yours", wearing ? "WEARING" : "WEAR", wearing ? Ui.Green : Ui.Orange,
+                         () => progress.Equip(cc), true, c.Type == "trail" ? c.Colours : null);
+                }
+                foreach (var c in locked)
+                {
+                    Sprite icon = c.Image != null ? Res.Get(c.Image) : null;
+                    string where = c.Price > 0 ? "In the STORE for " + Catalog.FormatCoins(c.Price) : (c.Source ?? "Event prize");
+                    Item(icon, c.Name, where, "LOCKED", new Color(0.3f, 0.3f, 0.35f), () => { }, false, c.Type == "trail" ? c.Colours : null);
                 }
             }
             Select(first);
@@ -170,7 +200,6 @@ namespace FlappyCrix
             int next = progress.NextStreak, streakNow = ready ? next : progress.Save.DailyStreak;
 
             var row = Ui.Rect(list, "Days");
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = 230;
             var g = row.gameObject.AddComponent<GridLayoutGroup>();
             g.cellSize = new Vector2(190, 220); g.spacing = new Vector2(14, 14); g.childAlignment = TextAnchor.MiddleCenter;
             for (int d = 1; d <= 7; d++)
@@ -208,7 +237,6 @@ namespace FlappyCrix
                 var claimed = progress.CalendarClaimed;
                 var doors = Ui.Rect(list, "Doors");
                 int rows = (season.CalendarDoors + 7) / 8;
-                doors.gameObject.AddComponent<LayoutElement>().preferredHeight = rows * 120;
                 var dg = doors.gameObject.AddComponent<GridLayoutGroup>();
                 dg.cellSize = new Vector2(150, 106); dg.spacing = new Vector2(12, 12); dg.childAlignment = TextAnchor.UpperCenter;
                 for (int d = 1; d <= season.CalendarDoors; d++)

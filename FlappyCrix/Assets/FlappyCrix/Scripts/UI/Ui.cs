@@ -70,9 +70,10 @@ namespace FlappyCrix
         /// <summary>A phone (not a tablet): a mobile screen whose short side is under about 4 inches.</summary>
         public static bool IsPhone()
         {
-            if (!Application.isMobilePlatform) return false;
+            // by the screen's real size, so the Unity editor's Device Simulator and every phone get the
+            // phone layout, while computer monitors (~96 dpi, 10+ inches tall) don't
             float dpi = Screen.dpi;
-            if (dpi <= 0) return true;
+            if (dpi <= 0) return Application.isMobilePlatform;
             return Mathf.Min(Screen.width, Screen.height) / dpi < 4f;
         }
 
@@ -319,7 +320,8 @@ namespace FlappyCrix
             else
             {
                 var v = content.gameObject.AddComponent<VerticalLayoutGroup>();
-                v.spacing = spacing; v.childControlHeight = false; v.childControlWidth = true; v.childForceExpandHeight = false; v.childForceExpandWidth = true;
+                // rows take the height they ask for (their LayoutElement or their text), so they never pile on top of each other
+                v.spacing = spacing; v.childControlHeight = true; v.childControlWidth = true; v.childForceExpandHeight = false; v.childForceExpandWidth = true;
             }
             var fit = content.gameObject.AddComponent<ContentSizeFitter>();
             fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
