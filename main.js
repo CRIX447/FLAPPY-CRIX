@@ -84,6 +84,9 @@ function isAuthUrl(url) {
         if (h === 'app.crixgamingvr.com' || h.endsWith('.firebaseapp.com')) return u.pathname.startsWith('/__/auth');
         if (h === 'accounts.google.com' || h === 'accounts.youtube.com') return true;
         if (h === 'discord.com' || h === 'discordapp.com') return /^\/(api\/)?(oauth2|login)/.test(u.pathname);
+        // "Continue with ItIsNow": its sign-in window (api.itisnow.net/popup) hands the answer
+        // back to the game page that opened it, so it has to open here, not in the browser.
+        if (h === 'api.itisnow.net') return true;
         return false;
     } catch (e) { return false; }
 }
