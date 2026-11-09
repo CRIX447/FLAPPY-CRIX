@@ -2,6 +2,14 @@
 
 CRIX STUDIOS · the next Flappy Crix app for Windows, Mac, Linux, Android and iOS.
 
+## Phones and tablets = the real website
+
+On Android and iPhone the app opens the actual Flappy Crix website inside it (`WebShell.cs`, using the
+free gree/unity-webview plugin, installed automatically from `Packages/manifest.json`; Unity needs Git
+installed to fetch it). So the phone app is an exact copy of the website and updates the moment the
+website does. Computers run the Unity game (shown as **HD (beta)** in the launcher) and the launcher's
+**PLAY** button opens the website game.
+
 ## Work on it straight from GitHub (recommended)
 
 Instead of downloading zips, keep the project linked to the GitHub repo, so every change Claude makes

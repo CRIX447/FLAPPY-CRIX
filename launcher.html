@@ -62,10 +62,10 @@ h1 span { color: var(--orange); }
     <img class="bird" src="launcher-bird.png" alt="">
     <img class="logo" src="launcher-logo.png" alt="Flappy Crix">
     <div class="tag">TAP · COLLECT · DRIP</div>
-    <button class="btn play" id="play" disabled>▶ PLAY</button>
+    <button class="btn play" id="web">▶ PLAY</button>
+    <button class="btn web" id="play" disabled>✨ PLAY HD (BETA)</button>
     <div class="bar" id="bar"><i id="fill"></i></div>
-    <div class="status" id="status">Checking for the game…</div>
-    <button class="btn web" id="web">🌐 PLAY THE WEB VERSION</button>
+    <div class="status" id="status">Checking for the HD version…</div>
     <div class="small">
       <button class="pill" id="folder">📁 Game files</button>
       <button class="pill" id="discord">💬 Discord</button>
@@ -98,19 +98,19 @@ h1 span { color: var(--orange); }
     $('newest').textContent = st.latest || (st.error ? 'offline' : 'none yet');
     const p = $('play');
     p.disabled = working || st.running;
-    if (!st.supported) { p.disabled = true; p.textContent = '▶ PLAY'; say('Use the web version on this computer.'); return; }
-    if (st.running) { p.textContent = '● PLAYING'; say('The game is running. Have fun!'); return; }
+    if (!st.supported) { p.disabled = true; p.textContent = '✨ PLAY HD (BETA)'; say('HD isn\'t available on this computer. PLAY works.'); return; }
+    if (st.running) { p.textContent = '● HD IS RUNNING'; say('The HD version is running. Have fun!'); return; }
     if (!st.installed) {
-      p.textContent = st.latest ? '⬇ INSTALL' : '▶ PLAY';
+      p.textContent = st.latest ? '⬇ INSTALL HD (BETA)' : '✨ PLAY HD (BETA)';
       p.disabled = working || !st.latest;
-      say(st.latest ? 'Install the game (' + mb(st.size) + '). It updates itself after that.'
-                    : st.error ? "Can't reach GitHub right now. The web version still works." : 'The game is coming soon! Try the web version meanwhile.', !!st.error);
+      say(st.latest ? 'PLAY is the full game. HD (beta) is the Unity version: ' + mb(st.size) + ' download.'
+                    : st.error ? "Can't check for HD right now. PLAY still works." : 'HD (beta) is coming soon. PLAY is the full game.', false);
     } else if (st.update) {
-      p.textContent = '⬇ UPDATE';
+      p.textContent = '⬇ UPDATE HD (BETA)';
       say('A new version is out (' + st.latestName + ').');
     } else {
-      p.textContent = '▶ PLAY';
-      say('Ready to play.');
+      p.textContent = '✨ PLAY HD (BETA)';
+      say('Ready. PLAY is the full game; HD (beta) is the Unity version.');
     }
   }
 
