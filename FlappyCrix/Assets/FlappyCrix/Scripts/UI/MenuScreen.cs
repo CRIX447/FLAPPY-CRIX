@@ -70,6 +70,13 @@ namespace FlappyCrix
         float age;
         readonly bool canQuit;
 
+        // While you play on a computer (Settings > Game view: Website) the menu stays up as the frame:
+        // the centre card empties and the game shows through it; the side columns stay, with the live score.
+        readonly Image dimImg, gridImg, panelBg;
+        readonly Text scoreHead;
+        public bool Playing { get; private set; }
+        int liveScore;
+
         sealed class Tile
         {
             public SlantButton Button;
@@ -89,12 +96,14 @@ namespace FlappyCrix
             var grid = Ui.Img(Root, "Grid", Res.Grid(), new Color(1, 1, 1, 0.6f));
             grid.type = Image.Type.Tiled;
             Ui.Fill(grid.rectTransform);
+            dimImg = dim; gridImg = grid;
 
             holder = Ui.Rect(Root, "Holder");
             holder.anchorMin = holder.anchorMax = holder.pivot = new Vector2(0.5f, 0.5f);
 
             // ---------------------------------------------------------------- centre card
             panel = Ui.Box(holder, "MenuCard", PanelBg, Ui.Red, 30, 4, 7, new Color(0.55f, 0.08f, 0.14f, 0.9f));
+            panelBg = panel.Find("Bg").GetComponent<Image>();
 
             online = Ui.Pill(panel, "PLAY ONLINE", "1f3ae", onlineAction, Maroon, Maroon, new Color(1f, 0.42f, 0.21f, 0.75f), Ui.Orange, 28,
                              new Color(0.35f, 0.08f, 0.05f, 0.9f), 26);
@@ -204,6 +213,7 @@ namespace FlappyCrix
             rightCol = Ui.Rect(holder, "Right");
             scoreCard = Ui.Box(rightCol, "Score", ColumnBg, SoftEdge, 20, 2, 5, new Color(0, 0, 0, 0.5f));
             var sh = Ui.Label(scoreCard, "LAST SCORE", 17, Ui.Dim, TextAnchor.UpperLeft, false);
+            scoreHead = sh;
             Ui.At(sh.rectTransform, 20, 16, 200, 24);
             scoreBest = Ui.Label(scoreCard, "BEST 0", 18, Ui.Gold, TextAnchor.UpperRight, false);
             Ui.Place(scoreBest.rectTransform, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -16), new Vector2(200, 24));
@@ -350,6 +360,16 @@ namespace FlappyCrix
 
             holder.sizeDelta = new Vector2(W, H);
             Fit(W, H);
+            if (Playing) { ShowCentre(false); brandBox.gameObject.SetActive(false); }
+        }
+
+        void ShowCentre(bool on)
+        {
+            for (int i = 0; i < panel.childCount; i++)
+            {
+                var c = panel.GetChild(i);
+                if (c.name != "Lip" && c.name != "Bg" && c.name != "Edge") c.gameObject.SetActive(on);
+            }
         }
 
         /// <summary>Shrinks everything evenly if the screen is smaller than the layout.</summary>
@@ -570,6 +590,43 @@ namespace FlappyCrix
 
         protected override void OnShow() { Refresh(); }
 
+        /// <summary>Playing: the centre card turns into the game's frame and the columns show the live score.</summary>
+        public void SetPlaying(bool on)
+        {
+            Playing = on;
+            ShowCentre(!on);
+            brandBox.gameObject.SetActive(!on && Ui.CurrentForm == Ui.Form.Desktop);   // the game's coin counter sits there
+            if (!on) Layout(Ui.CurrentForm);      // puts back what the layout hides or moves
+            panelBg.enabled = !on;
+            dimImg.enabled = !on;
+            gridImg.enabled = !on;
+            Group.interactable = !on; Group.blocksRaycasts = !on;
+            scoreHead.text = on ? "SCORE" : "LAST SCORE";
+            liveScore = 0;
+            Refresh();
+        }
+
+        public void SetLiveScore(int s)
+        {
+            liveScore = s;
+            if (!Playing) return;
+            scoreValue.text = s.ToString(CultureInfo.InvariantCulture);
+            int next = (s / 10 + 1) * 10;
+            mileValue.text = next.ToString(CultureInfo.InvariantCulture);
+            mileFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01((s % 10) / 10f), 1);
+        }
+
+        /// <summary>Where the game shows on screen, as a fraction of the screen (the inside of the centre card).</summary>
+        public Rect GameArea()
+        {
+            var corners = new Vector3[4];
+            panel.GetWorldCorners(corners);
+            float inset = 6 * holder.lossyScale.x;
+            float x0 = corners[0].x + inset, y0 = corners[0].y + inset, x1 = corners[2].x - inset, y1 = corners[2].y - inset;
+            float w = Mathf.Max(1, Screen.width), h = Mathf.Max(1, Screen.height);
+            return Rect.MinMaxRect(Mathf.Clamp01(x0 / w), Mathf.Clamp01(y0 / h), Mathf.Clamp01(x1 / w), Mathf.Clamp01(y1 / h));
+        }
+
         public void Refresh()
         {
             var inv = CultureInfo.InvariantCulture;
@@ -599,11 +656,15 @@ namespace FlappyCrix
             statCoins.text = coins; statBest.text = s.Best.ToString(inv); statAwards.text = awards + " / " + allAwards; statGames.text = s.Games.ToString(inv);
             coinPillText.text = coins;
 
-            scoreValue.text = LastScore.ToString(inv);
             scoreBest.text = "BEST " + s.Best.ToString(inv);
-            int next = (s.Best / 10 + 1) * 10;
-            mileValue.text = next.ToString(inv);
-            mileFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01((s.Best % 10) / 10f), 1);
+            if (Playing) SetLiveScore(liveScore);
+            else
+            {
+                scoreValue.text = LastScore.ToString(inv);
+                int next = (s.Best / 10 + 1) * 10;
+                mileValue.text = next.ToString(inv);
+                mileFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01((s.Best % 10) / 10f), 1);
+            }
 
             RefreshMusic();
         }

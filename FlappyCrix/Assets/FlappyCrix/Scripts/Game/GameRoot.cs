@@ -74,6 +74,13 @@ namespace FlappyCrix
             cam.backgroundColor = Color.black;
             cam.allowHDR = !Application.isMobilePlatform;
             cam.allowMSAA = false;
+            // behind everything: the site's near-black, so the space around a framed game is dark
+            var backdrop = new GameObject("Backdrop").AddComponent<Camera>();
+            backdrop.transform.SetParent(transform, false);
+            backdrop.depth = cam.depth - 1;
+            backdrop.cullingMask = 0;
+            backdrop.clearFlags = CameraClearFlags.SolidColor;
+            backdrop.backgroundColor = Ui.Ink;
             camGo.AddComponent<AudioListener>();
             camGo.AddComponent<PostFx>();
             // clips need FFmpeg on the computer; the browser version has none
@@ -270,7 +277,9 @@ namespace FlappyCrix
         void StartRun()
         {
             if (gameOver.Visible) gameOver.Hide();
-            menu.Hide();
+            // like the website: on a computer the menu stays as the frame around the game
+            if (Framed()) { if (!menu.Visible) menu.Show(); menu.SetPlaying(true); }
+            else menu.Hide();
             state = State.Playing;
             runCoins = 0;
             world.Attract = false;
@@ -319,8 +328,27 @@ namespace FlappyCrix
             if (PostFx.Inst != null) PostFx.Inst.Desaturate = 0;
             Sfx.Duck(false);
             state = State.Menu;
+            if (menu.Playing) menu.SetPlaying(false);
             menu.Show();
             if (online != null) online.CloudSaveNow(false);
+        }
+
+        /// <summary>Computers, Settings > Game view: Website. The game sits inside the centre card.</summary>
+        static bool Framed() => Settings.WebsiteView && Ui.CurrentForm == Ui.Form.Desktop;
+
+        void FitGameView()
+        {
+            if (menu == null) return;
+            bool run = state == State.Playing || state == State.Paused || state == State.Dead;
+            bool framed = Framed() && (state == State.Menu || run);
+            // the setting or the screen changed mid-run: switch the frame on or off
+            if (run && framed && !menu.Playing) { if (!menu.Visible) menu.Show(); menu.SetPlaying(true); Deselect(); }
+            else if (run && !framed && menu.Playing) { menu.SetPlaying(false); menu.Hide(); }
+            var r = framed && menu.Visible ? menu.GameArea() : new Rect(0, 0, 1, 1);
+            if (r.width < 0.05f || r.height < 0.05f) r = new Rect(0, 0, 1, 1);
+            if (cam.rect != r) cam.rect = r;
+            // the screen effects work on the whole screen, so they rest while the game is framed
+            if (PostFx.Inst != null && PostFx.Inst.enabled == framed) PostFx.Inst.enabled = !framed;
         }
 
         static void Deselect() { if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null); }
@@ -424,7 +452,7 @@ namespace FlappyCrix
         void OnScored(int s)
         {
             if (state == State.Match) online.Mp.OnScored(s);
-            if (state != State.Match || online.Mp.Mode != "coinrush") hud.SetScore(s);
+            if (state != State.Match || online.Mp.Mode != "coinrush") { hud.SetScore(s); menu.SetLiveScore(s); }
             hud.HintAlpha = 0;
             progress.OnScored(s);
             if (s % 10 == 0) { PostFx.Glitch(0.45f); PostFx.Kick(0.6f); }
@@ -519,6 +547,7 @@ namespace FlappyCrix
             scaler.referenceResolution = (portrait ? new Vector2(1080, 1920) : new Vector2(1920, 1080)) / ui;
             scaler.matchWidthOrHeight = portrait ? 0 : 1;
             Ui.UpdateForm((RectTransform)canvas.transform);
+            FitGameView();
 
             if (Settings.IsDesktop && (Inputs.ToggleFullscreen() || ((Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) && Input.GetKeyDown(KeyCode.Return))))
                 Settings.ToggleFullscreen();

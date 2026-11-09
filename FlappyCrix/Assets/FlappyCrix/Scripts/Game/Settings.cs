@@ -24,6 +24,8 @@ namespace FlappyCrix
         public static float UiScale = 1;
         /// <summary>How big the game itself is on screen (0.6 .. 1): smaller shows more around it.</summary>
         public static float GameSize = 1;
+        /// <summary>Computers: the game in a tall frame between the side columns, like the website (else full width).</summary>
+        public static bool WebsiteView = true;
 
         public static readonly int[] FpsChoices = { 30, 60, 90, 120, 144, 240, 0 };
         public static event Action Changed;
@@ -49,6 +51,7 @@ namespace FlappyCrix
             Sfx = PlayerPrefs.GetFloat("fc.sfx", 0.9f);
             UiScale = Mathf.Clamp(PlayerPrefs.GetFloat("fc.uiscale", 1f), 0.8f, 1.4f);
             GameSize = Mathf.Clamp(PlayerPrefs.GetFloat("fc.gamesize", 1f), 0.6f, 1f);
+            WebsiteView = PlayerPrefs.GetInt("fc.webview", 1) == 1;
         }
 
         public static void Save()
@@ -66,6 +69,7 @@ namespace FlappyCrix
             PlayerPrefs.SetFloat("fc.sfx", Sfx);
             PlayerPrefs.SetFloat("fc.uiscale", UiScale);
             PlayerPrefs.SetFloat("fc.gamesize", GameSize);
+            PlayerPrefs.SetInt("fc.webview", WebsiteView ? 1 : 0);
             PlayerPrefs.Save();
             if (Changed != null) Changed();
         }
