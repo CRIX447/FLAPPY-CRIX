@@ -1,18 +1,19 @@
-# Builds the Windows app on GitHub's own Windows machine and attaches it to a
-# DRAFT release, so nobody needs Node or a Windows build setup locally.
-# Run it from the Actions tab ("Run workflow"), then check the draft under
-# Releases and press Publish. Players get nothing until then.
+# Builds the Windows app on GitHub's own Windows machine, so nobody needs Node
+# or a Windows build setup locally. Run it from the Actions tab ("Run workflow").
 #
 # After building, it starts the finished app to prove it works, and tries
 # the tricks people use to tamper with Electron apps to prove they fail.
-# Only publish the draft if the run is green.
+# Only when every check passes does it PUBLISH the release (the exe, the
+# portable exe and latest.yml for auto-update), so the download page and the
+# app's updater pick it up straight away. A failed run publishes nothing.
+# To release a new version, raise "version" in package.json first.
 name: Build Windows app
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write          # to create the draft release and upload to it
+  contents: write          # to publish the release
 
 jobs:
   build:
@@ -27,8 +28,8 @@ jobs:
       - name: Install
         run: npm install
 
-      - name: Build and attach to a draft release
-        run: npx electron-builder --win --publish always
+      - name: Build
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Nothing is code-signed, so skip fetching the signing toolkit
@@ -80,6 +81,21 @@ jobs:
           if (-not $p.WaitForExit(150000)) { $p.Kill() }
           if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'RAN_AS_NODE' -Quiet)) { throw 'The exe ran code as plain Node' }
           'Not usable as Node'
+
+      - name: Publish the release (only reached when every check passed)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "v$version"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag is already published. Raise the version in package.json to release again." }
+          $files = @("dist\FlappyCrixSetup-$version.exe", "dist\FlappyCrixSetup-$version.exe.blockmap", "dist\FlappyCrix.exe", "dist\latest.yml")
+          foreach ($f in $files) { if (-not (Test-Path $f)) { throw "Missing $f" } }
+          $notes = "Flappy Crix $version for Windows.`n`n- **FlappyCrixSetup-$version.exe**: installer (recommended)`n- **FlappyCrix.exe**: portable, no install`n`nInstalled copies update themselves."
+          gh release create $tag @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title $version --notes $notes --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing failed' }
 
       # A copy on the run itself too, in case the release step is ever refused
       - uses: actions/upload-artifact@v4

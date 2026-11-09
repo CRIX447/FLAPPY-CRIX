@@ -54,8 +54,10 @@ Create a PUBLIC repo called crix-desktop, then:
     $env:GITHUB_TOKEN="your_token"
     npm run publish
 
-That builds and creates a draft GitHub release in one step. Publish it
-on GitHub when you are happy with it.
+That builds and publishes a GitHub release in one step.
+The easier way: raise "version" in package.json, then on GitHub go to
+Actions > "Build Windows app" > Run workflow. It builds, tests the exe,
+and publishes the release only if every check passes.
 Get a token at GitHub > Settings > Developer settings >
 Personal access tokens, with "repo" scope.
 

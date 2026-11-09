@@ -1,6 +1,6 @@
 {
   "name": "flappy-crix",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Flappy Crix \u2014 CRIX STUDIOS",
   "main": "main.js",
   "author": {
@@ -87,7 +87,7 @@
         "provider": "github",
         "owner": "CRIX447",
         "repo": "FLAPPY-CRIX",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "afterPack": "build/afterPack.js"
