@@ -19,7 +19,7 @@ namespace FlappyCrix.EditorTools
     [InitializeOnLoad]
     public static class ProjectSetup
     {
-        const int SetupVersion = 3;
+        const int SetupVersion = 4;
         const string ScenePath = "Assets/FlappyCrix/Scenes/Main.unity";
         const string IconPath = "Assets/FlappyCrix/Resources/FlappyCrix/Images/icon.png";
         public const string AppId = "com.crixstudios.flappycrix";
@@ -85,6 +85,10 @@ namespace FlappyCrix.EditorTools
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.Android.forceInternetPermission = true;      // online play
+            // phones run the website inside the app (WebShell.cs): let it use the microphone for voice chat
+            // and know when the phone goes offline (gree/unity-webview settings)
+            AddDefines(NamedBuildTarget.Android, "UNITYWEBVIEW_ANDROID_ENABLE_MICROPHONE", "UNITYWEBVIEW_ANDROID_ENABLE_NAVIGATOR_ONLINE");
+            PlayerSettings.iOS.microphoneUsageDescription = "Flappy Crix uses the microphone for voice chat with other players, only while you have it switched on.";
 
             // the browser build: small gzip files that work on any web host (no special server settings),
             // cached by the browser after the first visit, shown in our own full-window page
@@ -150,6 +154,14 @@ namespace FlappyCrix.EditorTools
             });
             Debug.Log("[Flappy Crix] CI build " + target + ": " + report.summary.result + " -> " + path);
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
+        }
+
+        static void AddDefines(NamedBuildTarget target, params string[] add)
+        {
+            var have = new System.Collections.Generic.List<string>(PlayerSettings.GetScriptingDefineSymbols(target).Split(';'));
+            foreach (var d in add) if (!have.Contains(d)) have.Add(d);
+            have.RemoveAll(string.IsNullOrEmpty);
+            PlayerSettings.SetScriptingDefineSymbols(target, string.Join(";", have));
         }
 
         static string Arg(string[] args, string name)

@@ -10,10 +10,12 @@ namespace FlappyCrix
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Start()
         {
-            if (Object.FindObjectOfType<GameRoot>() != null) return;
+            if (Object.FindObjectOfType<GameRoot>() != null || Object.FindObjectOfType<WebShell>() != null) return;
             // any camera the scene came with is replaced by the game's own
             foreach (var c in Object.FindObjectsOfType<Camera>()) c.gameObject.SetActive(false);
-            new GameObject("Flappy Crix").AddComponent<GameRoot>();
+            // phones and tablets run the real website inside the app (WebShell.cs); computers the Unity game
+            if (WebShell.Wanted) new GameObject("Flappy Crix").AddComponent<WebShell>();
+            else new GameObject("Flappy Crix").AddComponent<GameRoot>();
         }
     }
 }
