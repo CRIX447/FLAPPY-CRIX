@@ -1,10 +1,10 @@
 /**
- * Flappy Crix — desktop launcher
+ * Flappy Crix — the desktop game
  *
- * Opens the launcher (launcher.html): PLAY installs, updates and starts the
- * Unity version of the game (launcher.js), and PLAY THE WEB VERSION opens the
- * live website game in its own window, as the app always did — pushing to the
- * website still updates that on next launch.
+ * The app IS the website game (an exact copy, never behind): the CRIX STUDIOS
+ * splash shows while the live site loads, then the game opens. Pushing to the
+ * website updates every installed copy on next launch.
+ * The Unity version (HD, beta) is in the menu: Game > Unity HD (beta).
  */
 
 const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net, session } = require('electron');
@@ -245,6 +245,24 @@ function createLauncher() {
     launcherWin.on('closed', () => { launcherWin = null; });
 }
 
+/* ---------- SPLASH ----------
+   CRIX STUDIOS while the game loads (no video: that's the website's, and the
+   app skips it). */
+let splash = null, splashAt = 0;
+function showSplash() {
+    splashAt = Date.now();
+    splash = new BrowserWindow({
+        width: 520, height: 520, frame: false, resizable: false, movable: true, center: true,
+        backgroundColor: '#000000', show: true, skipTaskbar: false, title: 'Flappy Crix',
+        icon: path.join(__dirname, 'icon.ico'),
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: false }
+    });
+    splash.loadFile(path.join(__dirname, 'splash.html'));
+    splash.webContents.on('will-navigate', e => e.preventDefault());
+    splash.on('closed', () => { splash = null; });
+}
+function closeSplash() { if (splash && !splash.isDestroyed()) splash.close(); }
+
 function openWebVersion() {
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); return; }
     createWindow();
@@ -302,8 +320,8 @@ function showOffline(reason) {
 
 function createWindow() {
     win = new BrowserWindow({
-        width: 520,
-        height: 900,
+        width: 1280,
+        height: 820,             // the website's computer layout (three columns) fits
         minWidth: 380,
         minHeight: 640,
         backgroundColor: '#000000',
@@ -327,8 +345,13 @@ function createWindow() {
 
     // Avoids a white flash before the page paints — and if it never paints
     // (a very slow connection), show the window anyway rather than nothing.
-    win.once('ready-to-show', () => win.show());
-    setTimeout(() => { if (win && !win.isVisible()) win.show(); }, 4000);
+    // the splash stays at least 1.8 s, then the game appears in its place
+    const reveal = () => {
+        const wait = Math.max(0, 1800 - (Date.now() - splashAt));
+        setTimeout(() => { if (win && !win.isVisible()) win.show(); closeSplash(); }, wait);
+    };
+    win.once('ready-to-show', reveal);
+    setTimeout(reveal, 8000);
 
     win.webContents.setWindowOpenHandler(({ url }) => {
         if (isAuthUrl(url)) return AUTH_POPUP;
@@ -382,8 +405,7 @@ Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
         label: 'Game',
         submenu: [
-            { label: 'Launcher', click: () => { if (launcherWin) { launcherWin.restore(); launcherWin.focus(); } else createLauncher(); } },
-            { label: 'Web version', click: openWebVersion },
+            { label: 'Unity HD (beta)…', click: () => { if (launcherWin) { launcherWin.restore(); launcherWin.focus(); } else createLauncher(); } },
             { label: 'Reload', accelerator: 'F5', click: loadGame },
             { label: 'Fullscreen', accelerator: 'F11',
               click: () => win?.setFullScreen(!win.isFullScreen()) },
@@ -427,13 +449,14 @@ if (!app.requestSingleInstanceLock()) {
     app.quit();
 } else {
     app.on('second-instance', () => {
-        const w = launcherWin || win;
+        const w = win || launcherWin;
         if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
-        else createLauncher();
+        else createWindow();
     });
     app.whenReady().then(() => {
         setupPermissions(session.defaultSession);
-        createLauncher();
+        showSplash();
+        createWindow();
         smokeTest();
         setupUpdates();
         watchGameVersion();     // 1.0.0 started this twice
@@ -508,22 +531,19 @@ function setupUpdates() {
    loaded there and quits. Nothing happens unless that is set. */
 function smokeTest() {
     const out = process.env.CRIX_SMOKE_TEST;
-    if (!out || !launcherWin) return;
+    if (!out || !win) return;
     const finish = (ok, url) => {
         try { fs.writeFileSync(out, JSON.stringify({ ok, url, version: app.getVersion(),
               electron: process.versions.electron, devTools: DEV_TOOLS })); } catch (e) {}
         app.exit(ok ? 0 : 3);
     };
-    // the launcher must open, and the web version must load the game (or its offline page)
-    launcherWin.webContents.once('did-finish-load', () => {
-        openWebVersion();
-        win.webContents.on('did-finish-load', () => {
-            const url = win.webContents.getURL();
-            if (isGameUrl(url) || isOfflinePage(url)) setTimeout(() => finish(true, url), 1500);
-        });
+    // the game (or its offline page) must load
+    win.webContents.on('did-finish-load', () => {
+        const url = win.webContents.getURL();
+        if (isGameUrl(url) || isOfflinePage(url)) setTimeout(() => finish(true, url), 1500);
     });
     setTimeout(() => finish(false, win ? win.webContents.getURL() : ''), 90000);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (!win && !launcherWin) createLauncher(); });
+app.on('activate', () => { if (!win && !launcherWin) createWindow(); });
