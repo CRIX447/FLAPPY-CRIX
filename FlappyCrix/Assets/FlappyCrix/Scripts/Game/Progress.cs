@@ -166,6 +166,13 @@ namespace FlappyCrix
             CheckAchievements();
         }
 
+        /// <summary>Takes off whatever hat or trail you're wearing.</summary>
+        public void TakeOff(string type)
+        {
+            if (type == "hat") Save.Hat = ""; else Save.Trail = "";
+            Sfx.Play("select"); Bump();
+        }
+
         public bool Wearing(Catalog.Cosmetic c) => c.Type == "hat" ? Save.Hat == c.Id : Save.Trail == c.Id;
 
         bool Refuse(string why) { Sfx.Play("error"); Say(null, "CAN'T DO THAT", why, Ui.Red); return false; }

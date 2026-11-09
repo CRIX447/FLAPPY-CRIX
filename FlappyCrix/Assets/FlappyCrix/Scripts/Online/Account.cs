@@ -150,7 +150,11 @@ namespace FlappyCrix.Online
             string code = MiniJson.Str(j, "code"), token = MiniJson.Str(j, "token");
             if (!r.Ok || code == null || token == null)
             {
-                Set(State.Error, r.Status == 404 ? "Linking isn't available on crixgamingvr.com right now." : "Couldn't get a code from crixgamingvr.com (" + r + ").");
+                // say what the website said, so the cause is visible (e.g. a missing Vercel setting)
+                string why = MiniJson.Str(j, "detail") ?? MiniJson.Str(j, "error");
+                string host = new Uri(Config.Site).Host;
+                Set(State.Error, r.Status == 404 ? "Linking isn't available on " + host + " right now."
+                               : "Couldn't get a code from " + host + " (" + r + (why != null ? ": " + why : "") + ").");
                 return;
             }
             double secs = MiniJson.Num(j, "expiresIn", 600);

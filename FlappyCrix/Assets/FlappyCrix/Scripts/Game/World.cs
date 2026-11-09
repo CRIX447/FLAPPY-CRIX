@@ -57,7 +57,8 @@ namespace FlappyCrix
         float bushWidth;
         /// <summary>The site draws no trail unless one is equipped.</summary>
         bool HasTrail;
-        LineRenderer trail;
+        TrailMesh trail;
+        Catalog.Cosmetic trailItem;     // the trail being worn (World.Players sets it)
         Sprite pipeBody, pipeCap;
         readonly List<PipeView> pipes = new List<PipeView>();
         readonly List<CoinView> coins = new List<CoinView>();
@@ -175,18 +176,8 @@ namespace FlappyCrix
             bird = NewSprite("Bird", Res.Get("bird"), 50);
             if (bird.sprite != null) bird.transform.localScale = Vector3.one * (BirdDraw * U / bird.sprite.bounds.size.y);
 
-            var tgo = new GameObject("Trail");
-            tgo.transform.SetParent(root, false);
-            trail = tgo.AddComponent<LineRenderer>();
-            trail.material = Res.Additive;
-            trail.useWorldSpace = false;
-            trail.numCapVertices = 4;
-            trail.sortingOrder = 45;
-            trail.widthCurve = new AnimationCurve(new Keyframe(0, 0f), new Keyframe(1, 0.16f));
-            var g = new Gradient();
-            g.SetKeys(new[] { new GradientColorKey(accent, 0), new GradientColorKey(Color.Lerp(accent, Color.yellow, 0.5f), 1) },
-                      new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(0.75f, 1) });
-            trail.colorGradient = g;
+            // the trail, drawn like the website's (TrailMesh.cs)
+            trail = new TrailMesh(root, 45);
 
             burst = MakeParticles("Burst", 60, new Color(1f, 0.42f, 0.2f), 0.05f, 0.14f, 1.4f, 4.5f, 0.9f, 2f);
             sparks = MakeParticles("Sparks", 30, new Color(1f, 0.85f, 0.3f), 0.03f, 0.08f, 0.35f, 2.2f, 0.5f, 0.3f);
@@ -489,14 +480,9 @@ namespace FlappyCrix
             DrawRemotes();
 
             // trail
-            int n = Sim.Trail.Count / 2;
-            trail.enabled = n > 1 && bird.enabled && HasTrail;
-            if (trail.enabled)
-            {
-                trail.positionCount = n;
-                for (int i = 0; i < n; i++)
-                    trail.SetPosition(i, new Vector3((Sim.Trail[i * 2] - slide) * U, (NativeSim.H - Sim.Trail[i * 2 + 1]) * U, 0));
-            }
+            if (Sim.Trail.Count >= 4 && bird.enabled && HasTrail && trailItem != null)
+                trail.Draw(Sim.Trail, Sim.TrailSeq, trailItem.Colours, trailItem.Fx, BirdDraw, slide, U, NativeSim.H);
+            else trail.Hide();
         }
 
         float CoinScale() => 20f * 1.25f * U / (Res.Get("coin") != null ? Res.Get("coin").bounds.size.y : 1);

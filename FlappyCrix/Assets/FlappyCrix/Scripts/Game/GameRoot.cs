@@ -44,7 +44,7 @@ namespace FlappyCrix
         HudScreen hud;
         PauseScreen pause;
         GameOverScreen gameOver;
-        ShopScreen shop;
+        ShopScreen shop, locker;
         DailyScreen daily;
         AwardsScreen awards;
         AccountScreen account;
@@ -178,11 +178,14 @@ namespace FlappyCrix
             gameOver = new GameOverScreen(root, () => { if (gameOver.Ready) StartRun(); }, () => { gameOver.Hide(); EndRunToMenu(); });
             shop = new ShopScreen(root, progress, () => world.Sim);
             shop.Closed = () => Back(shop);
+            locker = new ShopScreen(root, progress, () => world.Sim, true);
+            locker.Closed = () => Back(locker);
+            menu.OpenLocker = () => Open(locker);
             daily = new DailyScreen(root, progress);
             daily.Closed = () => Back(daily);
             awards = new AwardsScreen(root, progress);
             awards.Closed = () => Back(awards);
-            var list = new List<Panel> { splash, loading, title, menu, settings, credits, hud, pause, gameOver, shop, daily, awards };
+            var list = new List<Panel> { splash, loading, title, menu, settings, credits, hud, pause, gameOver, shop, locker, daily, awards };
             if (online != null)
             {
                 account = new AccountScreen(root, online, progress);
@@ -527,7 +530,7 @@ namespace FlappyCrix
                 if (state == State.Match) UpdateMatchHud();
             }
 
-            bool overlay = settings != null && (settings.Visible || credits.Visible || shop.Visible || daily.Visible || awards.Visible || (account != null && account.Visible));
+            bool overlay = settings != null && (settings.Visible || credits.Visible || shop.Visible || locker.Visible || daily.Visible || awards.Visible || (account != null && account.Visible));
             switch (state)
             {
                 case State.Title:
@@ -580,7 +583,7 @@ namespace FlappyCrix
 
         void BackFromOverlay()
         {
-            foreach (var p in new Panel[] { settings, credits, shop, daily, awards, account })
+            foreach (var p in new Panel[] { settings, credits, shop, locker, daily, awards, account })
                 if (p != null && p.Visible) { Back(p); return; }
         }
     }

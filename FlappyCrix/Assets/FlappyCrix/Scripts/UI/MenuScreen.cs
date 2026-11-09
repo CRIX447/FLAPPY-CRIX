@@ -32,6 +32,8 @@ namespace FlappyCrix
         public Func<string> AccountLine = () => "Guest";
         public Func<bool> SignedIn = () => false;
         public int LastScore;
+        /// <summary>Opens the locker (the wardrobe), where you wear what you own.</summary>
+        public Action OpenLocker;
 
         // everything sits in here, so it can shrink to fit any screen
         readonly RectTransform holder;
@@ -146,7 +148,7 @@ namespace FlappyCrix
             tiles.Add(MakeTile(panel, "DAILY", "1f381", dailyAction));
             tiles.Add(MakeTile(panel, "STORE", "1f6d2", shopAction));
             tiles.Add(MakeTile(panel, "AWARDS", "1f3c6", awardsAction));
-            tiles.Add(MakeTile(panel, "ACCOUNT", "1f464", accountAction));
+            tiles.Add(MakeTile(panel, "LOCKER", "1f9e2", () => { if (OpenLocker != null) OpenLocker(); }));
             tiles.Add(MakeTile(panel, "SETTINGS", "2699", settingsAction));
             tiles.Add(MakeTile(panel, "CREDITS", "2728", creditsAction));
             dailyDot = Ui.Img(tiles[0].Rt, "Dot", Res.Rounded(10), Ui.Red);
