@@ -83,7 +83,7 @@ if errorlevel 1 (
     echo  will not work.
     echo.
     echo  Then check your download page picks it up:
-    echo    https://flappycrix.vercel.app/download
+    echo    https://crixgamingvr.com/download
     echo.
 )
 pause
