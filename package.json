@@ -1,7 +1,7 @@
 {
   "name": "flappy-crix",
-  "version": "2.0.0",
-  "description": "Flappy Crix launcher \u2014 CRIX STUDIOS",
+  "version": "2.1.0",
+  "description": "Flappy Crix \u2014 CRIX STUDIOS",
   "main": "main.js",
   "author": {
     "name": "CRIX STUDIOS",
@@ -36,7 +36,9 @@
       "launcher-preload.js",
       "launcher-logo.png",
       "launcher-bird.png",
-      "launcher-font.woff2"
+      "launcher-font.woff2",
+      "splash.html",
+      "splash.png"
     ],
     "electronFuses": {
       "runAsNode": false,

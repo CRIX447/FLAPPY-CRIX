@@ -67,16 +67,16 @@ namespace FlappyCrix
             cover = canvasGo;
             var bg = new GameObject("Bg", typeof(RectTransform)).AddComponent<Image>();
             bg.transform.SetParent(canvasGo.transform, false);
-            bg.color = Ui.Ink;
+            bg.color = Color.black;      // the splash image is on black
             Ui.Fill(bg.rectTransform);
-            var logoTex = Resources.Load<Texture2D>(Res.Root + "Images/icon");      // your Flappy Crix logo
+            var logoTex = Resources.Load<Texture2D>(Res.Root + "Images/crix-studios");   // your CRIX STUDIOS / Made with Unity splash
             if (logoTex != null)
             {
                 var logo = new GameObject("Logo", typeof(RectTransform)).AddComponent<RawImage>();
                 logo.transform.SetParent(canvasGo.transform, false);
                 logo.texture = logoTex;
                 float a = logoTex.width / (float)logoTex.height;
-                Ui.Place(logo.rectTransform, new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(700, 700 / a));
+                Ui.Place(logo.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1000, 1000 / a));
             }
             var font = Resources.Load<Font>(Res.Root + "font");
             var st = new GameObject("Status", typeof(RectTransform)).AddComponent<Text>();
