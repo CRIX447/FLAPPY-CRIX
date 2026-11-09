@@ -254,6 +254,8 @@ namespace FlappyCrix
             float aspect = Cam.aspect;
             ViewW = Mathf.Max(NativeSim.W, NativeSim.H * aspect);
             ViewH = Mathf.Max(NativeSim.H, ViewW / aspect);
+            // Settings > Game size: a smaller game shows more sky and ground around it
+            ViewH /= Mathf.Clamp(Settings.GameSize, 0.6f, 1f);
             ViewW = ViewH * aspect;
             // the bird about a third of the way across, never showing less than the site's box
             ViewLeft = Mathf.Min(0, NativeSim.BirdX - ViewW * 0.3f);
@@ -280,7 +282,7 @@ namespace FlappyCrix
             groundTop.transform.localScale = new Vector3((right - left) / groundTop.sprite.bounds.size.x * 1.05f, 0.05f / groundTop.sprite.bounds.size.y, 1);
         }
 
-        float lastAspect;
+        float lastAspect, lastGameSize = 1;
 
         // ------------------------------------------------------------------ running
 
@@ -345,7 +347,8 @@ namespace FlappyCrix
         void Update()
         {
             if (Sim == null) return;
-            if (!Mathf.Approximately(lastAspect, Cam.aspect)) { lastAspect = Cam.aspect; Layout(); }
+            if (!Mathf.Approximately(lastAspect, Cam.aspect) || !Mathf.Approximately(lastGameSize, Settings.GameSize))
+            { lastAspect = Cam.aspect; lastGameSize = Settings.GameSize; Layout(); }
 
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             if (!Frozen)

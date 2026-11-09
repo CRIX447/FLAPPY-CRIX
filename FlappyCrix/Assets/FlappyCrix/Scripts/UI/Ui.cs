@@ -260,6 +260,7 @@ namespace FlappyCrix
         public static OptionRow Option(Transform parent, string label, Func<string> value, Action<int> change, float width = 980)
         {
             var r = Rect(parent, "Option " + label);
+            r.sizeDelta = new Vector2(width, 74);      // the list doesn't size its rows, so they need their own size
             var le = r.gameObject.AddComponent<LayoutElement>();
             le.preferredWidth = width; le.preferredHeight = 74;
             var bg = r.gameObject.AddComponent<Image>();

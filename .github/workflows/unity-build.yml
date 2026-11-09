@@ -1,4 +1,4 @@
-# Builds the Unity version of Flappy Crix (unity/) on GitHub's machines and attaches the
+# Builds the Unity version of Flappy Crix (FlappyCrix/) on GitHub's machines and attaches the
 # downloads to a DRAFT release: Windows, Mac, Linux, Android (APK) and Web (WebGL, "HD").
 # The web build is also put on GitHub Pages when Pages is switched on for this repository
 # (Settings > Pages > Source: GitHub Actions); the launcher installs the Windows one.
@@ -8,7 +8,7 @@
 # It needs your Unity account once (Settings > Secrets and variables > Actions > New secret):
 #   UNITY_EMAIL     the email you sign in to Unity with
 #   UNITY_PASSWORD  its password
-#   UNITY_LICENSE   the text inside your Unity licence file (Unity_lic.ulf), see unity/README.md
+#   UNITY_LICENSE   the text inside your Unity licence file (Unity_lic.ulf), see FlappyCrix/README.md
 # These stay secret: GitHub never shows them again, not even in the logs.
 name: Build Unity game
 
@@ -66,7 +66,7 @@ jobs:
           [ -z "$UNITY_EMAIL" ] && missing="$missing UNITY_EMAIL"
           [ -z "$UNITY_PASSWORD" ] && missing="$missing UNITY_PASSWORD"
           [ -z "$UNITY_LICENSE" ] && missing="$missing UNITY_LICENSE"
-          if [ -n "$missing" ]; then echo "::error::Add these repository secrets first:$missing (see unity/README.md, 'Build it on GitHub')"; exit 1; fi
+          if [ -n "$missing" ]; then echo "::error::Add these repository secrets first:$missing (see FlappyCrix/README.md, 'Build it on GitHub')"; exit 1; fi
 
       - name: Make room (Unity and Android are big)
         if: steps.want.outputs.go == 'yes'
@@ -83,8 +83,8 @@ jobs:
       - uses: actions/cache@v4
         if: steps.want.outputs.go == 'yes'
         with:
-          path: unity/Library
-          key: Library-${{ matrix.target }}-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          path: FlappyCrix/Library
+          key: Library-${{ matrix.target }}-${{ hashFiles('FlappyCrix/Assets/**', 'FlappyCrix/Packages/**', 'FlappyCrix/ProjectSettings/**') }}
           restore-keys: Library-${{ matrix.target }}-
 
       - name: Build with Unity
@@ -95,7 +95,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          projectPath: unity
+          projectPath: FlappyCrix
           targetPlatform: ${{ matrix.target }}
           buildName: FlappyCrix
           buildMethod: FlappyCrix.EditorTools.ProjectSetup.CiBuild

@@ -20,6 +20,10 @@ namespace FlappyCrix
         public static Fx Effects;
         public static bool Shake, ShowFps, Haptics;
         public static float Music, Sfx;    // 0..1
+        /// <summary>How big the menus and buttons are (0.8 .. 1.4).</summary>
+        public static float UiScale = 1;
+        /// <summary>How big the game itself is on screen (0.6 .. 1): smaller shows more around it.</summary>
+        public static float GameSize = 1;
 
         public static readonly int[] FpsChoices = { 30, 60, 90, 120, 144, 240, 0 };
         public static event Action Changed;
@@ -43,6 +47,8 @@ namespace FlappyCrix
             Haptics = PlayerPrefs.GetInt("fc.haptics", 1) == 1;
             Music = PlayerPrefs.GetFloat("fc.music", 0.6f);
             Sfx = PlayerPrefs.GetFloat("fc.sfx", 0.9f);
+            UiScale = Mathf.Clamp(PlayerPrefs.GetFloat("fc.uiscale", 1f), 0.8f, 1.4f);
+            GameSize = Mathf.Clamp(PlayerPrefs.GetFloat("fc.gamesize", 1f), 0.6f, 1f);
         }
 
         public static void Save()
@@ -58,6 +64,8 @@ namespace FlappyCrix
             PlayerPrefs.SetInt("fc.haptics", Haptics ? 1 : 0);
             PlayerPrefs.SetFloat("fc.music", Music);
             PlayerPrefs.SetFloat("fc.sfx", Sfx);
+            PlayerPrefs.SetFloat("fc.uiscale", UiScale);
+            PlayerPrefs.SetFloat("fc.gamesize", GameSize);
             PlayerPrefs.Save();
             if (Changed != null) Changed();
         }
