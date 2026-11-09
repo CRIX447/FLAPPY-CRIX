@@ -16,7 +16,7 @@ namespace FlappyCrix.Online
     public sealed class SiteConfig
     {
         // crixgamingvr.com
-        public string Site = "https://flappycrix.vercel.app";
+        public string Site = "https://crixgamingvr.com";
         public string LinkPage => Site + "/link";
 
         // Firebase (accounts + saves) - from the site

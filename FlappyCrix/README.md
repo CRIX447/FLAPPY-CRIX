@@ -90,7 +90,7 @@ If a build goes red, open the run, click the red job and copy the error to Claud
 
 | | |
 |---|---|
-| Account | **ACCOUNT** → LINK MY ACCOUNT shows a code and a QR code: open flappycrix.vercel.app/link on a phone or PC, sign in, type the code. The game links by itself. Coins, level, best, hats, trails and awards are then the same here and on the website (saved to your account) |
+| Account | **ACCOUNT** → LINK MY ACCOUNT shows a code and a QR code: open crixgamingvr.com/link on a phone or PC, sign in, type the code. The game links by itself. Coins, level, best, hats, trails and awards are then the same here and on the website (saved to your account) |
 | Play online | **PLAY ONLINE** plays with website players in the same Photon rooms: room list, join with a 4-letter code, create a room (Free Play, Race, Last One Standing, Coin Rush; anyone or code-only) |
 | Room | Players with their colours and levels, the host picks the mode and starts, website players' chat shows up (filtered like on the site) |
 | Match | Other players' birds fly next to you with their names; live standings, race target, Coin Rush clock, who's left; respawns like on the site; the host can end Free Play; results with the winner (+10 XP for a win, Coin Rush pays double coins) |

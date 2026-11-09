@@ -35,16 +35,15 @@ catch (e) { console.log('electron-updater not installed — auto-update off'); }
 // CRIX_GAME_URL points a development run (npm start) at a local copy of the
 // site. A built exe always loads the real one.
 const GAME_URL = (!app.isPackaged && process.env.CRIX_GAME_URL) ||
-                 'https://flappycrix.vercel.app/';
+                 'https://crixgamingvr.com/flappycrix';
 const SITE = new URL(GAME_URL).origin;
 
 // Only these load inside the window. Everything else opens in the real
 // browser, so the app never turns into a general-purpose web browser.
-// The game lives on its own site now (flappycrix.io once that is ready);
-// crixgamingvr.com stays on the list because its old /flappycrix address
-// forwards there.
-const INTERNAL = ['flappycrix.vercel.app', 'flappycrix.io', 'www.flappycrix.io',
-                  'crixgamingvr.com', 'www.crixgamingvr.com', new URL(GAME_URL).hostname];
+// The game lives at crixgamingvr.com/flappycrix. flappycrix.vercel.app stays
+// on the list because its old pages forward there.
+const INTERNAL = ['crixgamingvr.com', 'www.crixgamingvr.com', 'flappycrix.vercel.app',
+                  'flappycrix.io', 'www.flappycrix.io', new URL(GAME_URL).hostname];
 const INTERNAL_PATHS = ['/flappycrix', '/game', '/index'];   // /flappycrix-og is the birthday season
 
 // The site the game comes from — the only one allowed to ask for anything

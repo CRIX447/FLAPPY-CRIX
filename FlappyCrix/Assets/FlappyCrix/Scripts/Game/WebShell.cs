@@ -31,7 +31,7 @@ namespace FlappyCrix
             }
         }
 
-        const string Site = "https://flappycrix.vercel.app/";
+        const string Site = "https://crixgamingvr.com/flappycrix";
         // these load inside the app: the game's sites and the sign-in pages they use
         const string Inside = @"^https?://((((www\.)?flappycrix\.io|flappycrix\.vercel\.app|(www\.)?crixgamingvr\.com|app\.crixgamingvr\.com|[a-z0-9-]+\.firebaseapp\.com|api\.itisnow\.net)([/:?#]|$))|discord\.com/(api/)?(oauth2|login)|discordapp\.com/(api/)?oauth2)";
 
