@@ -139,9 +139,19 @@ namespace FlappyCrix
         {
             var bg = Ui.Img(Root, "Bg", Res.MakeSprite(Res.VGradient(new Color(0.08f, 0.02f, 0.06f), new Color(0.01f, 0.01f, 0.02f)), 100, "loadbg"), Color.white);
             Ui.Fill(bg.rectTransform);
-            var title = GlitchText.Make(Root, "FLAPPY CRIX", 120, Color.white, TextAnchor.MiddleCenter);
-            Ui.Place((RectTransform)title.transform, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 200));
-            title.Main.color = Color.white;
+            // (this screen exists before the pictures load, so it fetches the logo itself)
+            var tex = Resources.Load<Texture2D>(Res.Root + "Images/icon");
+            if (tex != null)
+            {
+                var lg = Ui.Rect(Root, "Logo").gameObject.AddComponent<RawImage>();
+                lg.texture = tex; lg.raycastTarget = false;
+                Ui.Place(lg.rectTransform, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(440, 440 * tex.height / (float)tex.width));
+            }
+            else
+            {
+                var title = GlitchText.Make(Root, "FLAPPY CRIX", 120, Color.white, TextAnchor.MiddleCenter);
+                Ui.Place((RectTransform)title.transform, new Vector2(0.5f, 0.62f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 200));
+            }
 
             var barBack = Ui.Img(Root, "BarBack", Res.White, new Color(1, 1, 1, 0.08f));
             Ui.Place(barBack.rectTransform, new Vector2(0.5f, 0.32f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 10));
@@ -188,6 +198,7 @@ namespace FlappyCrix
     {
         Text press;
         GlitchText logo;
+        Image logoPic;
 
         public TitleScreen(Transform canvas, string version) : base(canvas, "Title")
         {
@@ -197,8 +208,18 @@ namespace FlappyCrix
             logo = GlitchText.Make(Root, "FLAPPY CRIX", 190, Color.white, TextAnchor.MiddleCenter);
             Ui.Place((RectTransform)logo.transform, new Vector2(0.5f, 0.58f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(2000, 260));
             logo.Intensity = 1.4f;
+            // your Flappy Crix logo (Images/icon.png); the text title only shows if the picture is missing
+            var pic = Res.Get("icon");
+            if (pic != null)
+            {
+                logoPic = Ui.Img(Root, "Logo", pic, Color.white);
+                logoPic.preserveAspect = true;
+                Ui.Place(logoPic.rectTransform, new Vector2(0.5f, 0.6f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 560));
+                logo.gameObject.SetActive(false);
+                band.gameObject.SetActive(false);
+            }
             var sub = Ui.Label(Root, "T A P   ·   C O L L E C T   ·   D R I P", 32, Ui.Green, TextAnchor.MiddleCenter, false);
-            Ui.Place(sub.rectTransform, new Vector2(0.5f, 0.45f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 50));
+            Ui.Place(sub.rectTransform, new Vector2(0.5f, pic != null ? 0.31f : 0.45f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600, 50));
             press = Ui.Label(Root, Settings.IsMobile ? "TAP TO START" : "PRESS ANY BUTTON", 44, Color.white, TextAnchor.MiddleCenter);
             Ui.Place(press.rectTransform, new Vector2(0.5f, 0.2f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400, 70));
             var cs = Ui.Label(Root, "© CRIX STUDIOS", 22, new Color(1, 1, 1, 0.45f), TextAnchor.LowerLeft, false);
@@ -212,6 +233,7 @@ namespace FlappyCrix
             bool tall = form == Ui.Form.Portrait;
             logo.Main.fontSize = tall ? 128 : 190;
             ((RectTransform)logo.transform).sizeDelta = new Vector2(tall ? 1040 : 2000, tall ? 180 : 260);
+            if (logoPic != null) logoPic.rectTransform.sizeDelta = tall ? new Vector2(860, 860) : new Vector2(560, 560);
         }
 
         public override void Tick(float dt)
@@ -220,6 +242,7 @@ namespace FlappyCrix
             var c = press.color; c.a = 0.35f + 0.65f * Mathf.Abs(Mathf.Sin(t * 2.2f)); press.color = c;
             float s = 1 + Mathf.Sin(t * 1.3f) * 0.012f;
             logo.transform.localScale = new Vector3(s, s, 1);
+            if (logoPic != null) logoPic.transform.localScale = new Vector3(s, s, 1);
         }
     }
 
@@ -253,6 +276,9 @@ namespace FlappyCrix
             }
             rows.Add(Ui.Option(list, "FRAME RATE", () => Settings.FpsCap == 0 ? "UNLIMITED" : Settings.FpsCap + " FPS",
                 d => { int i = Array.IndexOf(Settings.FpsChoices, Settings.FpsCap); if (i < 0) i = 1; i = (i + d + Settings.FpsChoices.Length) % Settings.FpsChoices.Length; Settings.FpsCap = Settings.FpsChoices[i]; Apply(); }));
+            if (Settings.IsDesktop)
+                rows.Add(Ui.Option(list, "GAME VIEW", () => Settings.WebsiteView ? "WEBSITE" : "FULL WIDTH",
+                    d => { Settings.WebsiteView = !Settings.WebsiteView; Settings.Save(); }));
             rows.Add(Ui.Option(list, "INTERFACE SIZE", () => Mathf.RoundToInt(Settings.UiScale * 100) + "%",
                 d => { Settings.UiScale = Mathf.Clamp(Mathf.Round(Settings.UiScale * 10 + d) / 10f, 0.8f, 1.4f); Settings.Save(); }));
             rows.Add(Ui.Option(list, "GAME SIZE", () => Mathf.RoundToInt(Settings.GameSize * 100) + "%",

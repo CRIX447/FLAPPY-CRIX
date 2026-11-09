@@ -20,15 +20,15 @@ namespace FlappyCrix
         public static readonly Color Lip = new Color(150 / 255f, 20 / 255f, 35 / 255f, 0.8f);
         public static readonly Color Dim = new Color32(0xA6, 0xA6, 0xB2, 255);
 
-        /// <summary>The interface is drawn by the game camera, so the screen effects (glow, glitch) touch it too.</summary>
+        /// <summary>The interface canvas: drawn over the whole screen, whatever part of it the game camera uses.</summary>
         public static Canvas MakeCanvas(Transform parent, Camera cam, out CanvasScaler scaler)
         {
             var go = new GameObject("UI", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var c = go.AddComponent<Canvas>();
-            c.renderMode = RenderMode.ScreenSpaceCamera;
-            c.worldCamera = cam;
-            c.planeDistance = 1;
+            // drawn on top of the screen itself, so the game camera can be just a frame in the middle
+            // (Settings > Game view: Website) while the menus and side columns cover the whole screen
+            c.renderMode = RenderMode.ScreenSpaceOverlay;
             c.sortingOrder = 1000;
             scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

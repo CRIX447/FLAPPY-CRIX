@@ -69,7 +69,7 @@ namespace FlappyCrix
             bg.transform.SetParent(canvasGo.transform, false);
             bg.color = Ui.Ink;
             Ui.Fill(bg.rectTransform);
-            var logoTex = Resources.Load<Texture2D>(Res.Root + "Images/crix-studios");
+            var logoTex = Resources.Load<Texture2D>(Res.Root + "Images/icon");      // your Flappy Crix logo
             if (logoTex != null)
             {
                 var logo = new GameObject("Logo", typeof(RectTransform)).AddComponent<RawImage>();
