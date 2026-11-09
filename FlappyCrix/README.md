@@ -2,11 +2,25 @@
 
 CRIX STUDIOS · the next Flappy Crix app for Windows, Mac, Linux, Android and iOS.
 
+## Work on it straight from GitHub (recommended)
+
+Instead of downloading zips, keep the project linked to the GitHub repo, so every change Claude makes
+shows up on your PC with one click, and your own changes go back up:
+
+1. Install **GitHub Desktop** (desktop.github.com) and sign in with your GitHub account (CRIX447).
+2. **File → Clone repository → `CRIX447/FLAPPY-CRIX`** → pick a folder that stays put (e.g. `C:\CrixGames`).
+3. Unity Hub → **Add → Add project from disk** → pick `C:\CrixGames\FLAPPY-CRIX\FlappyCrix`.
+4. To get the newest changes: GitHub Desktop → **Fetch origin → Pull origin**, then switch back to Unity
+   (it reloads by itself). Close Unity first if it was a big update.
+5. To save your own changes to GitHub: GitHub Desktop shows what changed → write a short summary →
+   **Commit to main → Push origin**. Unity's own cache folders (`Library`, `Temp`, `Builds`…) are
+   ignored automatically, so only the real project goes up.
+
 ## Open it
 
 1. Install **Unity Hub**, then **Unity 6 LTS** (any `6000.0.x` version, the newest is best) with the
    build support you want (Windows, Mac, Linux, Android, iOS).
-2. Unity Hub → **Add** → **Add project from disk** → pick this `unity` folder.
+2. Unity Hub → **Add** → **Add project from disk** → pick this `FlappyCrix` folder.
    If the Hub says the version is different, pick your Unity 6 version and press **Continue**.
 3. The first time it opens, the project sets itself up: you'll see
    `[Flappy Crix] Project set up. Press Play to run the game.` in the Console.
@@ -17,7 +31,7 @@ If something looks wrong after an update: **Flappy Crix → Set Up Project**.
 ## Build it
 
 **Flappy Crix → Build → Windows / Mac / Linux / Android (APK) / iOS (Xcode project) / Web (WebGL).**
-The finished game appears in `unity/Builds/…` and its folder opens. (Mac and iOS builds need a Mac.)
+The finished game appears in `FlappyCrix/Builds/…` and its folder opens. (Mac and iOS builds need a Mac.)
 
 ## Build it on GitHub (no Unity needed on your PC)
 

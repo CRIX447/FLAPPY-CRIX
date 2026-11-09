@@ -28,6 +28,7 @@ namespace FlappyCrix
         Camera cam;
         Canvas canvas;
         CanvasScaler scaler;
+        volatile string guardMessage;
         World world;
         Progress progress;
         OnlineHub online;
@@ -77,6 +78,10 @@ namespace FlappyCrix
             camGo.AddComponent<PostFx>();
             // clips need FFmpeg on the computer; the browser version has none
             if (Application.platform != RuntimePlatform.WebGLPlayer) camGo.AddComponent<ClipRecorder>();
+            // anti-cheat: speed hacks and mod loaders (Guard.cs); edited memory and saves (Guarded.cs)
+            gameObject.AddComponent<Guard>();
+            // (it can be flagged from a background thread, so the message waits for the next frame)
+            FlappyCrix.Native.GuardState.Flagged += why => guardMessage = why;
             Sfx.Create(gameObject);
 
             canvas = Ui.MakeCanvas(transform, cam, out scaler);
@@ -234,6 +239,8 @@ namespace FlappyCrix
                 toasts.Show(Application.platform == RuntimePlatform.WebGLPlayer ? "ONLINE IS IN THE MAIN WEB GAME: FLAPPYCRIX.VERCEL.APP" : "ONLINE ISN'T AVAILABLE RIGHT NOW", Ui.Orange);
                 return;
             }
+            if (online.IpBanned) { toasts.Show("BANNED: THIS CONNECTION CAN'T PLAY ONLINE (" + (online.IpBanReason ?? "").ToUpperInvariant() + ")", Ui.Red); return; }
+            if (FlappyCrix.Native.GuardState.Tampered) { toasts.Show("ONLINE IS OFF: THE ANTI-CHEAT NOTICED " + FlappyCrix.Native.GuardState.Why.ToUpperInvariant(), Ui.Red); return; }
             menu.Hide();
             state = State.Online;
             lobby.Show();
@@ -501,9 +508,12 @@ namespace FlappyCrix
             if (panels != null) foreach (var p in panels) p.Update(dt);
             else { splash.Update(dt); loading.Update(dt); }
             toasts.Tick();
+            if (guardMessage != null) { toasts.Show("ANTI-CHEAT: " + guardMessage.ToUpperInvariant() + ". ONLINE AND CLOUD SAVES ARE OFF", Ui.Red); guardMessage = null; }
 
             bool portrait = Screen.height > Screen.width;
-            scaler.referenceResolution = portrait ? new Vector2(1080, 1920) : new Vector2(1920, 1080);
+            // Settings > Interface size: a smaller reference makes everything bigger
+            float ui = Mathf.Clamp(Settings.UiScale, 0.8f, 1.4f);
+            scaler.referenceResolution = (portrait ? new Vector2(1080, 1920) : new Vector2(1920, 1080)) / ui;
             scaler.matchWidthOrHeight = portrait ? 0 : 1;
             Ui.UpdateForm((RectTransform)canvas.transform);
 

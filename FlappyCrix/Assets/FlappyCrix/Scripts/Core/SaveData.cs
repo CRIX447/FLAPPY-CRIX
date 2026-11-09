@@ -14,8 +14,13 @@ namespace FlappyCrix.Native
 {
     public sealed class SaveData
     {
-        public long Coins;
-        public int Best, Games, Xp, Level = 1;
+        // coins and best score can't be found or changed with a memory scanner (Guarded.cs)
+        private GuardedLong coins, best;
+        public long Coins { get { return coins; } set { coins = value; } }
+        public int Best { get { return (int)best.Value; } set { best = value; } }
+        public int Games, Xp, Level = 1;
+        /// <summary>This save was edited outside the game once; it never counts online again (start a new save or sign in).</summary>
+        public bool Tainted;
         public HashSet<string> Owned = new HashSet<string>();
         public string Hat = "", Trail = "";
         public HashSet<string> Achievements = new HashSet<string>();
@@ -47,7 +52,7 @@ namespace FlappyCrix.Native
             var c = new SaveData(newPath)
             {
                 Coins = Coins, Best = Best, Games = Games, Xp = Xp, Level = Level, Hat = Hat, Trail = Trail,
-                DailyLast = DailyLast, DailyStreak = DailyStreak, SavedAt = SavedAt,
+                DailyLast = DailyLast, DailyStreak = DailyStreak, SavedAt = SavedAt, Tainted = Tainted,
                 MusicOn = MusicOn, SfxOn = SfxOn, MenuClicks = MenuClicks, LightTheme = LightTheme, ReducedMotion = ReducedMotion,
                 MusicVol = MusicVol, SfxVol = SfxVol, SeasonChoice = SeasonChoice,
             };
@@ -70,12 +75,27 @@ namespace FlappyCrix.Native
             try
             {
                 if (path != null && File.Exists(path))
+                {
+                    var body = new StringBuilder();
+                    string sig = null;
                     foreach (var raw in File.ReadAllLines(path))
                     {
+                        if (raw.StartsWith("sig=", StringComparison.Ordinal)) { sig = raw.Substring(4).Trim(); continue; }
+                        body.Append(raw).Append('\n');
                         int eq = raw.IndexOf('=');
                         if (eq <= 0 || raw.StartsWith("#")) continue;
                         s.Set(raw.Substring(0, eq).Trim(), raw.Substring(eq + 1).Trim());
                     }
+                    // saves from before the seal have none and are trusted once; after that every save is sealed
+                    // only saves written before the seal existed may have none (they start with the old header)
+                    bool legacy = sig == null && body.ToString().StartsWith("# Flappy Crix for Gorilla Tag", StringComparison.Ordinal);
+                    if (!legacy && sig != SaveSeal.Sign(body.ToString())) s.Tainted = true;
+                    if (s.Tainted)
+                    {
+                        GuardState.Flag("the save file was edited");
+                        log?.Invoke("The save file was edited outside the game.");
+                    }
+                }
             }
             catch (Exception e) { log?.Invoke("Couldn't read the save (" + e.Message + "); starting fresh."); }
             if (s.Level < 1) s.Level = 1;
@@ -108,6 +128,7 @@ namespace FlappyCrix.Native
                 case "season": SeasonChoice = v; break;
                 case "savedAt": if (long.TryParse(v, out l)) SavedAt = l; break;
                 case "guestNo": if (int.TryParse(v, out i)) GuestNo = i; break;
+                case "tainted": Tainted = v == "1"; break;
                 default:
                     if (k.StartsWith("cal_", StringComparison.Ordinal))
                     {
@@ -131,7 +152,7 @@ namespace FlappyCrix.Native
             Dirty = false;
             if (path == null) return;
             var b = new StringBuilder();
-            b.AppendLine("# Flappy Crix for Gorilla Tag - your progress in the in-game version. Made with AI (Claude by Anthropic).");
+            b.Append("# Flappy Crix - your progress. Editing this file is noticed and stops it counting online.").Append('\n');
             b.Append("coins=").Append(Coins).AppendLine();
             b.Append("best=").Append(Best).AppendLine();
             b.Append("games=").Append(Games).AppendLine();
@@ -153,21 +174,24 @@ namespace FlappyCrix.Native
             b.Append("season=").Append(SeasonChoice).AppendLine();
             b.Append("savedAt=").Append(SavedAt).AppendLine();
             if (GuestNo > 0) b.Append("guestNo=").Append(GuestNo).AppendLine();
+            if (Tainted) b.Append("tainted=1").AppendLine();
             foreach (var kv in Calendar)
             {
                 var doors = new List<int>(kv.Value); doors.Sort();
                 b.Append("cal_").Append(kv.Key).Append('=').Append(string.Join(",", doors.ConvertAll(d => d.ToString(CultureInfo.InvariantCulture)).ToArray())).AppendLine();
             }
+            string sealedText = b.ToString().Replace("\r", "");
+            sealedText += "sig=" + SaveSeal.Sign(sealedText) + "\n";
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 string tmp = path + ".tmp";
-                File.WriteAllText(tmp, b.ToString());
+                File.WriteAllText(tmp, sealedText);
                 if (File.Exists(path)) File.Replace(tmp, path, null); else File.Move(tmp, path);
             }
             catch
             {
-                try { File.WriteAllText(path, b.ToString()); } catch { }
+                try { File.WriteAllText(path, sealedText); } catch { }
             }
         }
 

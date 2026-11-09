@@ -235,11 +235,12 @@ namespace FlappyCrix
             Shade(Root, 0.82f);
             var title = GlitchText.Make(Root, "SETTINGS", 90, Color.white, TextAnchor.MiddleLeft);
             Ui.Place((RectTransform)title.transform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(110, -60), new Vector2(1000, 120));
-            var list = Ui.Rect(Root, "Rows");
-            Ui.Place(list, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -40), new Vector2(1000, 760));
-            var v = list.gameObject.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 10; v.childControlHeight = false; v.childControlWidth = false; v.childForceExpandHeight = false; v.childForceExpandWidth = false;
-            v.childAlignment = TextAnchor.UpperCenter;
+            // the rows scroll when there are more than fit (mouse wheel, drag, or just move with keys / pad)
+            var area = Ui.Rect(Root, "Rows");
+            area.anchorMin = new Vector2(0.5f, 0); area.anchorMax = new Vector2(0.5f, 1); area.pivot = new Vector2(0.5f, 0.5f);
+            area.sizeDelta = new Vector2(1000, -330); area.anchoredPosition = new Vector2(0, 10);
+            var list = Ui.Scroll(area, false, Vector2.zero, 10);
+            listRt = list; viewRt = (RectTransform)list.parent;
 
             if (Settings.IsDesktop)
             {
@@ -252,6 +253,10 @@ namespace FlappyCrix
             }
             rows.Add(Ui.Option(list, "FRAME RATE", () => Settings.FpsCap == 0 ? "UNLIMITED" : Settings.FpsCap + " FPS",
                 d => { int i = Array.IndexOf(Settings.FpsChoices, Settings.FpsCap); if (i < 0) i = 1; i = (i + d + Settings.FpsChoices.Length) % Settings.FpsChoices.Length; Settings.FpsCap = Settings.FpsChoices[i]; Apply(); }));
+            rows.Add(Ui.Option(list, "INTERFACE SIZE", () => Mathf.RoundToInt(Settings.UiScale * 100) + "%",
+                d => { Settings.UiScale = Mathf.Clamp(Mathf.Round(Settings.UiScale * 10 + d) / 10f, 0.8f, 1.4f); Settings.Save(); }));
+            rows.Add(Ui.Option(list, "GAME SIZE", () => Mathf.RoundToInt(Settings.GameSize * 100) + "%",
+                d => { Settings.GameSize = Mathf.Clamp(Mathf.Round(Settings.GameSize * 10 + d) / 10f, 0.6f, 1f); Settings.Save(); }));
             rows.Add(Ui.Option(list, "EFFECTS", () => Settings.Effects.ToString().ToUpperInvariant(),
                 d => { Settings.Effects = (Settings.Fx)(((int)Settings.Effects + d + 3) % 3); Settings.Save(); }));
             rows.Add(Ui.Option(list, "SCREEN SHAKE", () => Settings.Shake ? "ON" : "OFF", d => { Settings.Shake = !Settings.Shake; Settings.Save(); }));
@@ -267,7 +272,25 @@ namespace FlappyCrix
             Ui.Place((RectTransform)back.transform, new Vector2(0, 0), new Vector2(0, 0), new Vector2(90, 50), new Vector2(300, 72));
         }
 
+        readonly RectTransform listRt, viewRt;
+
         static void Apply() { Settings.ApplyDisplay(); Settings.Save(); }
+
+        public override void Tick(float dt)
+        {
+            // keep the row you're on in view
+            var es = UnityEngine.EventSystems.EventSystem.current;
+            var sel = es != null ? es.currentSelectedGameObject : null;
+            if (sel == null || sel.transform.parent != listRt) return;
+            var r = (RectTransform)sel.transform;
+            float top = -r.anchoredPosition.y - r.rect.height * (1 - r.pivot.y);
+            float bottom = top + r.rect.height;
+            float view = viewRt.rect.height, at = listRt.anchoredPosition.y;
+            float want = at;
+            if (top < at) want = top;
+            else if (bottom > at + view) want = bottom - view;
+            if (!Mathf.Approximately(want, at)) listRt.anchoredPosition = new Vector2(listRt.anchoredPosition.x, Mathf.Lerp(at, want, Mathf.Min(1, dt * 14)));
+        }
 
         protected override void OnShow() { foreach (var r in rows) r.Refresh(); }
     }

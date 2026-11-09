@@ -28,6 +28,13 @@ namespace FlappyCrix
 
         public event Action MatchStarted, MatchEnded, LeftRoom;
 
+        // IP bans (the website's api/ipban.js): checked once at start. A banned connection can't play
+        // online with any account or as a guest. The guest ticket lets staff IP-ban a guest; it holds
+        // no address, only a sealed fingerprint the website made.
+        volatile string guestTicket;
+        public volatile bool IpBanned;
+        public volatile string IpBanReason;
+
         public OnlineHub(string dataRoot, NativeSim sim, Progress progress)
         {
             DataRoot = dataRoot;
@@ -43,6 +50,7 @@ namespace FlappyCrix
             {
                 { "level", progress.Save.Level }, { "hat", progress.Save.Hat == "" ? null : progress.Save.Hat },
                 { "trail", progress.Save.Trail == "" ? null : progress.Save.Trail },
+                { "gt", guestTicket },
             };
             Mp.PassFor = (room, actor) => Account.Status == Account.State.SignedIn ? Account.RoomPass(room, actor) : null;
             Mp.Sound += (n, v) => Sfx.Play(n, v);
@@ -52,6 +60,29 @@ namespace FlappyCrix
                 if (xp > 0) progress.GiveXp(xp);
             };
             Account.Start();
+            var check = new System.Threading.Thread(CheckIpBan) { IsBackground = true, Name = "FlappyCrix-IpBan" };
+            check.Start();
+        }
+
+        void CheckIpBan()
+        {
+            try
+            {
+                Config.EnsureLoaded(m => { });
+                var r = Http.PostJson(Config.Site + "/api/ipban", new System.Collections.Generic.Dictionary<string, object> { { "action", "check" } });
+                var j = r.Ok ? r.Json : null;
+                if (j == null) return;
+                object o;
+                if (j.TryGetValue("banned", out o) && o is bool && (bool)o)
+                {
+                    object b; string reason = "Breaking the rules";
+                    if (j.TryGetValue("ban", out b) && b is System.Collections.Generic.Dictionary<string, object> bd && bd.TryGetValue("reason", out o) && o is string) reason = (string)o;
+                    IpBanReason = reason;
+                    IpBanned = true;
+                }
+                else if (j.TryGetValue("ticket", out o) && o is string) guestTicket = (string)o;
+            }
+            catch (Exception e) { Debug.LogWarning("[FlappyCrix] ban check: " + e.Message); }
         }
 
         static string PlatformName()
@@ -73,6 +104,7 @@ namespace FlappyCrix
 
         public void Connect()
         {
+            if (GuardState.Tampered || IpBanned) return;      // anti-cheat (Guard.cs) or an IP ban: no online
             WantOnline = true;
             if (Mp.State == Multiplayer.Phase.Off) { Mp.Nickname = PlayerName; Mp.Connect(); }
         }
@@ -103,6 +135,8 @@ namespace FlappyCrix
             // multiplayer
             Mp.Nickname = PlayerName;
             Mp.Update(dt);
+            if (InRoom && IpBanned) { Mp.Leave(); WantOnline = false; notice("BANNED", "This connection is banned from online play (" + IpBanReason + ")."); }
+            if (InRoom && GuardState.Tampered) { Mp.Leave(); WantOnline = false; notice("ONLINE IS OFF", "The anti-cheat noticed " + GuardState.Why + ". Restart the game without it."); }
             if (InRoom && Account.Banned) { Mp.Leave(); notice("MULTIPLAYER IS OFF", "This account is banned (" + Account.BanReason + ")."); }
             if (Mp.MatchActive && !wasMatch && MatchStarted != null) MatchStarted();
             if (!Mp.MatchActive && wasMatch && MatchEnded != null) MatchEnded();
@@ -127,7 +161,7 @@ namespace FlappyCrix
 
         public void CloudSaveNow(bool now)
         {
-            if (!SignedIn || !progress.OnAccount) return;
+            if (!SignedIn || !progress.OnAccount || GuardState.Tampered) return;
             Account.QueueSave(progress.CloudFields(), now);
         }
 
