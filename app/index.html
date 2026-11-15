@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Crix</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0A0A0F; color: #EDEDED;
+               font: 15px/1.6 system-ui, "Segoe UI", sans-serif; }
+  .wrap { height: 100%; display: none; flex-direction: column; align-items: center;
+          justify-content: center; text-align: center; padding: 0 28px; box-sizing: border-box; }
+  body.offline .wrap { display: flex; }
+  h1 { font-size: 22px; margin: 0 0 8px; color: #FF4655; letter-spacing: 1px; }
+  p { margin: 0 0 6px; color: #BDBDBD; max-width: 380px; }
+  .status { margin-top: 18px; font-size: 13px; color: #00CC7A; min-height: 20px; }
+  button { margin-top: 18px; background: #FF4655; color: #fff; border: 0; border-radius: 10px;
+           padding: 12px 28px; font: inherit; font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00CC7A;
+         margin-right: 6px; animation: pulse 1.2s infinite ease-in-out; vertical-align: middle; }
+  @keyframes pulse { 50% { opacity: .25; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CAN'T REACH THE SERVERS</h1>
+  <p>Flappy Crix needs the internet to load. Check your connection: the game
+     opens by itself as soon as it can get through.</p>
+  <div class="status" id="status"><span class="dot"></span>Trying again…</div>
+  <button id="retry">TRY NOW</button>
+</div>
+<script>
+/* The app's start page (hidden behind the splash). It checks the game's server answers, then
+   opens the game. If it doesn't, it shows "can't reach the servers" and keeps trying by itself,
+   so nobody has to sit pressing a button. It also checks GitHub for a newer version of the app. */
+(function () {
+  var GAME = 'https://crixgamingvr.com/flappycrix';
+  var status = document.getElementById('status');
+  var wait = 3, timer = null, busy = false;
+  function tell(what) { location.href = 'crixapp://' + what; }   // the app catches these
+
+  function newer(a, b) {            // is version a newer than b? ("3.1.0" vs "3.0.0")
+    a = String(a).replace(/^v/, '').split('.').map(Number); b = String(b).split('.').map(Number);
+    for (var i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0); }
+    return false;
+  }
+  function checkAppUpdate() {
+    var mine = window.CRIX_APP_VERSION;
+    if (!mine) return Promise.resolve();
+    var ctl = new AbortController(); setTimeout(function () { ctl.abort(); }, 2500);
+    return fetch('https://api.github.com/repos/CRIX447/FLAPPY-CRIX/releases/latest', { signal: ctl.signal, cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
+        var v = rel && rel.tag_name;
+        if (v && /^v?\d+\.\d+\.\d+$/.test(v) && newer(v, mine)) tell('update?v=' + encodeURIComponent(v.replace(/^v/, '')));
+      }).catch(function () {});
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    var left = wait;
+    (function tick() {
+      status.innerHTML = '<span class="dot"></span>Trying again in ' + left + 's…';
+      if (left-- <= 0) return attempt();
+      timer = setTimeout(tick, 1000);
+    })();
+  }
+  function offline() {
+    busy = false;
+    if (!document.body.classList.contains('offline')) { document.body.classList.add('offline'); tell('ready'); }
+    wait = Math.min(30, Math.round(wait * 1.6));     // 3s, 5s, 8s ... up to 30s
+    schedule();
+  }
+  function attempt() {
+    if (busy) return;
+    busy = true;
+    status.innerHTML = '<span class="dot"></span>Connecting…';
+    var ctl = new AbortController(); var t = setTimeout(function () { ctl.abort(); }, 10000);
+    // no-cors: all that matters is whether the server answered at all
+    fetch(GAME + '?ping=' + Date.now(), { mode: 'no-cors', cache: 'no-store', signal: ctl.signal })
+      .then(function () { clearTimeout(t); status.textContent = 'Connected: loading the game…'; location.replace(GAME); })
+      .catch(function () { clearTimeout(t); offline(); });
+  }
+  document.getElementById('retry').onclick = function () { clearTimeout(timer); wait = 3; attempt(); };
+  addEventListener('online', function () { clearTimeout(timer); attempt(); });
+  addEventListener('keydown', function (e) { if (e.key === 'F1') { e.preventDefault(); tell('about'); } });
+  checkAppUpdate().then(attempt);
+})();
+</script>
+</body>
+</html>

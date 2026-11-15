@@ -1,0 +1,31 @@
+[package]
+name = "flappy-crix"
+version = "3.0.0"
+description = "Flappy Crix - CRIX STUDIOS"
+authors = ["CRIX STUDIOS"]
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-single-instance = "=2.5.5"
+tauri-plugin-opener = "=2.7.3"
+tauri-plugin-dialog = "=2.8.4"
+serde_json = "1"
+url = "2"
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "=0.39.1"
+windows = { version = "=0.62.2", features = ["Win32_Foundation"] }
+windows-core = "=0.62.2"
+
+# Small and fast: the whole app is built as one optimised piece
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
